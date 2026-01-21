@@ -7,4 +7,4 @@ include(CTest)
 add_subdirectory(src/CashSloth.Core)
 
 # add_subdirectory(src/CashSloth.CoreApi)
-# add_subdirectory(tests/CashSloth.Core.Tests)
+add_subdirectory(tests/CashSloth.Core.Tests)
