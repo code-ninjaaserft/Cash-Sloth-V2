@@ -1,0 +1,35 @@
+name: Refactor task
+description: Restructure or simplify existing code
+title: "Refactor: "
+labels:
+  - type:refactor
+  - status:needs-review
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be improved or simplified?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What files/modules are in scope? What is out of scope?
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: Acceptance Criteria (DoD)
+      description: What should be true to close this task?
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Risks or dependencies.
+    validations:
+      required: false

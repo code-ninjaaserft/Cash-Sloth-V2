@@ -1,0 +1,14 @@
+[
+  {
+    "title": "QEN-GV (Feb 2026)",
+    "due_on": "2026-02-14T23:59:59Z",
+    "description": "Buildable skeleton, C-API contract, core MVP behaviors, and WPF proof-of-life.",
+    "state": "open"
+  },
+  {
+    "title": "Z'Ämme ässe (Aug 2026)",
+    "due_on": "2026-08-22T23:59:59Z",
+    "description": "Persistence, presets, input pipeline, and UI polish for operational readiness.",
+    "state": "open"
+  }
+]

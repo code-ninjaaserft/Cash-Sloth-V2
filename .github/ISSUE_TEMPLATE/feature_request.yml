@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose a new capability or enhancement
+title: "Feature: "
+labels:
+  - type:feature
+  - status:needs-review
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Suggested approach or requirements.
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: Acceptance Criteria (DoD)
+      description: What should be true to close this request?
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links, mockups, or extra context.
+    validations:
+      required: false

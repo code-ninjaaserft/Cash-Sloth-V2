@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a defect in Cash-Sloth v2
+title: "Bug: "
+labels:
+  - type:bug
+  - status:needs-review
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Short description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Step-by-step reproduction instructions.
+      placeholder: "1. ...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: Acceptance Criteria (DoD)
+      description: What should be true to close this bug?
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Logs, screenshots, or extra context.
+    validations:
+      required: false

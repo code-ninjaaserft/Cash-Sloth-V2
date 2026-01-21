@@ -1,0 +1,44 @@
+[
+  {
+    "title": "Presets system (data model + load/save)",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:core", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Add a presets data model with load/save support.\n\nAcceptance Criteria (DoD):\n- Preset schema documented and versioned.\n- Core can load/save presets from disk.\n\nNotes:\n- Keep the API consistent with catalog handling."
+  },
+  {
+    "title": "SQLite persistence + schema versioning + migration strategy",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:core", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Persist core data to SQLite with versioning and migrations.\n\nAcceptance Criteria (DoD):\n- Schema version table and migration plan documented.\n- Load/save flows include migration handling.\n\nNotes:\n- Prefer simple, deterministic migrations."
+  },
+  {
+    "title": "Barcode pipeline (keyboard wedge) + parsing tests",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:wpf", "area:tests", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Implement keyboard-wedge barcode input and parsing tests.\n\nAcceptance Criteria (DoD):\n- WPF captures barcode input reliably.\n- Parsing logic has unit tests.\n\nNotes:\n- Define expected formats early and keep tests deterministic."
+  },
+  {
+    "title": "Optional: Android-Bluetooth protocol spec + prototype hook",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:capi", "type:feature", "priority:P1"],
+    "body": "Goal:\n- Document a Bluetooth protocol spec and create a minimal integration hook.\n\nAcceptance Criteria (DoD):\n- Protocol spec documented (message shapes + transport expectations).\n- Prototype hook or stub exists in the C-API or app.\n\nNotes:\n- Optional scope; prioritize minimal viability."
+  },
+  {
+    "title": "UI dynamic buttons layout + text fitting",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:wpf", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Implement dynamic UI button layouts with text fitting.\n\nAcceptance Criteria (DoD):\n- Layout adapts to preset count and screen size.\n- Text fitting avoids truncation for common names.\n\nNotes:\n- Keep performance predictable for low-spec hardware."
+  },
+  {
+    "title": "Customer display polish",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:wpf", "type:feature", "priority:P1"],
+    "body": "Goal:\n- Improve the customer display presentation.\n\nAcceptance Criteria (DoD):\n- Readability and layout polished for second-screen viewing.\n- Refresh timing is smooth with no flicker.\n\nNotes:\n- Final styling can be iterative but should be coherent."
+  },
+  {
+    "title": "Event rehearsal + freeze checklist",
+    "milestone": "Z'Ämme ässe (Aug 2026)",
+    "labels": ["milestone:august", "area:docs", "type:chore", "priority:P1"],
+    "body": "Goal:\n- Document rehearsal steps and pre-event freeze checklist.\n\nAcceptance Criteria (DoD):\n- Checklist covers setup, smoke tests, and rollback steps.\n- Stored under docs/ and referenced from roadmap.\n\nNotes:\n- Keep it concise and practical."
+  }
+]

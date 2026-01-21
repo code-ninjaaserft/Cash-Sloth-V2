@@ -1,0 +1,74 @@
+[
+  {
+    "title": "Scaffold buildable skeleton (CMake core DLL + WPF app stub)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:core", "area:wpf", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Stand up a buildable Core DLL and a minimal WPF app stub.\n\nAcceptance Criteria (DoD):\n- CMake config produces a DLL target for the core.\n- WPF app project builds (even with placeholder UI).\n- CI can build both on Windows without hard failures when optional parts are missing.\n\nNotes:\n- Keep implementations minimal; focus on structure and buildability."
+  },
+  {
+    "title": "Define C-API surface + memory/JSON conventions (cs_free etc.)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:capi", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Document and implement the initial C-API surface, including memory ownership and JSON conventions.\n\nAcceptance Criteria (DoD):\n- C-API headers define core entry points and `cs_free` (or equivalent).\n- JSON request/response patterns are documented in repo docs.\n- ABI expectations are explicit and stable.\n\nNotes:\n- Keep the surface minimal and forward-compatible."
+  },
+  {
+    "title": "Implement Core Cart MVP (add/remove/clear/total)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:core", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Implement cart operations in the C++ core.\n\nAcceptance Criteria (DoD):\n- Add/remove/clear/total operations are implemented and unit-tested.\n- Monetary values follow int64 cents rule.\n\nNotes:\n- Keep the API minimal; add extra fields only if required for MVP."
+  },
+  {
+    "title": "Implement Payment MVP (given/change)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:core", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Implement payment calculation basics in the core.\n\nAcceptance Criteria (DoD):\n- Given/change calculations are implemented with unit tests.\n- Edge cases (exact payment, rounding policy) are defined.\n\nNotes:\n- Keep the behavior deterministic and documented."
+  },
+  {
+    "title": "Catalog load from JSON (core)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:core", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Load catalog data from JSON in the core.\n\nAcceptance Criteria (DoD):\n- JSON schema documented (even if minimal).\n- Core can parse a catalog JSON and expose it to the C-API.\n\nNotes:\n- Favor forward-compatible schema with versioning hints."
+  },
+  {
+    "title": "WPF Proof-of-Life: buttons -> C-API -> UI refresh",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:wpf", "area:capi", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Demonstrate the WPF UI calling into the C-API and showing results.\n\nAcceptance Criteria (DoD):\n- At least one button triggers a C-API call.\n- UI refreshes with returned data.\n- Errors are surfaced in a basic, visible way.\n\nNotes:\n- Keep UI minimal; focus on the end-to-end signal."
+  },
+  {
+    "title": "CustomerDisplayWindow (2nd screen support)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:wpf", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Add a stub customer display window for second-screen support.\n\nAcceptance Criteria (DoD):\n- Customer display window can be opened independently.\n- Placeholder content renders without crashing.\n\nNotes:\n- No final styling needed; proof-of-life only."
+  },
+  {
+    "title": "CI workflow: Windows build core + app (+ tests if present)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:ci", "type:chore", "priority:P0"],
+    "body": "Goal:\n- Ensure CI builds core and app, running tests when available.\n\nAcceptance Criteria (DoD):\n- CI builds core via CMake on Windows.\n- CI builds WPF app when a csproj exists.\n- Tests run if present; otherwise steps skip gracefully.\n\nNotes:\n- Avoid hard failures for missing scaffolds."
+  },
+  {
+    "title": "Core unit tests for cart/payment + ctest integration",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:tests", "area:core", "type:feature", "priority:P0"],
+    "body": "Goal:\n- Add core unit tests and integrate with CTest.\n\nAcceptance Criteria (DoD):\n- Cart and payment logic has unit tests.\n- Tests register with CTest and run in CI when available.\n\nNotes:\n- Keep tests fast and deterministic."
+  },
+  {
+    "title": "Release workflow: tag -> zip artifacts (best-effort)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:ci", "type:chore", "priority:P0"],
+    "body": "Goal:\n- Package artifacts on tag push.\n\nAcceptance Criteria (DoD):\n- Release workflow creates a ZIP with available build outputs.\n- Workflow handles missing app outputs without failing.\n\nNotes:\n- Use official or well-known actions only."
+  },
+  {
+    "title": "Error handling strategy (error codes + last-error string/json)",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:capi", "type:feature", "priority:P1"],
+    "body": "Goal:\n- Define error handling patterns for the core and C-API.\n\nAcceptance Criteria (DoD):\n- Error codes documented.\n- Last-error string/JSON pattern defined and accessible via C-API.\n\nNotes:\n- Keep the contract stable and simple."
+  },
+  {
+    "title": "Basic soak test checklist doc",
+    "milestone": "QEN-GV (Feb 2026)",
+    "labels": ["milestone:qen-gv", "area:docs", "type:chore", "priority:P1"],
+    "body": "Goal:\n- Document a lightweight soak test checklist.\n\nAcceptance Criteria (DoD):\n- Checklist covers core cart, payment, and UI smoke passes.\n- Document lives under docs/ with clear ownership.\n\nNotes:\n- Keep it short and practical."
+  }
+]

@@ -1,0 +1,28 @@
+name: Chore/task
+description: Maintenance or operational work
+title: "Chore: "
+labels:
+  - type:chore
+  - status:needs-review
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What needs to be done and why?
+    validations:
+      required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: Acceptance Criteria (DoD)
+      description: What should be true to close this task?
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Implementation notes or dependencies.
+    validations:
+      required: false
