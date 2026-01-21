@@ -100,8 +100,8 @@ foreach ($milestone in $milestones) {
 Write-Section "Sync issues"
 $existingIssues = gh api "repos/$repo/issues?state=all&per_page=100" | ConvertFrom-Json
 $issueSets = @(
-    Load-JsonFile $issuesQenPath,
-    Load-JsonFile $issuesAugustPath
+    (Load-JsonFile $issuesQenPath),
+    (Load-JsonFile $issuesAugustPath)
 )
 
 foreach ($issues in $issueSets) {
