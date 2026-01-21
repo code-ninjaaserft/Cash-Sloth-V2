@@ -35,19 +35,19 @@ jobs:
 
       - name: Configure CMake (Core)
         run: |
-          cmake -S src/CashSloth.Core -B src/CashSloth.Core/build -G "Visual Studio 17 2022" -A x64
+          cmake -S src/CashSloth.Core -B build/core -G "Visual Studio 17 2022" -A x64
 
       - name: Build Core (Release)
         run: |
-          cmake --build src/CashSloth.Core/build --config Release
+          cmake --build build/core --config Release
 
       - name: Run C++ tests (if present)
         shell: pwsh
         run: |
-          if (Test-Path "src/CashSloth.Core/build") {
-            ctest --test-dir src/CashSloth.Core/build -C Release --output-on-failure
+          if (Test-Path "build/core") {
+            ctest --test-dir build/core -C Release --output-on-failure
           } else {
-            Write-Host "No src/CashSloth.Core/build directory; skipping ctest."
+            Write-Host "No build/core directory; skipping ctest."
           }
 
       - name: Build WPF App (if csproj exists)

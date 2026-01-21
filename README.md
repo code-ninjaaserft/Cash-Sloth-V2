@@ -28,11 +28,11 @@ The design is layered: **Core (C++) → C-API → WPF (.NET) via P/Invoke**. The
 
 ## Local builds (Windows)
 ```powershell
-cmake -S src/CashSloth.Core -B src/CashSloth.Core/build
-cmake --build src/CashSloth.Core/build --config Release
+cmake -S src/CashSloth.Core -B build/core
+cmake --build build/core --config Release
 dotnet build src/CashSloth.App/CashSloth.App.csproj
 ```
-The native build outputs `CashSlothCore.dll` to `src/CashSloth.Core/build/bin`, and the WPF project copies it to its output folder on build.
+The native build outputs `CashSlothCore.dll` to `build/core/bin`, and the WPF project copies it to its output folder on build.
 
 ## Design rules
 - Monetary values in the core are stored as **int64 cents**.

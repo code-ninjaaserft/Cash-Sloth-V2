@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <CashSlothCoreDll>$(MSBuildThisFileDirectory)..\CashSloth.Core\build\bin\CashSlothCore.dll</CashSlothCoreDll>
+    <CashSlothCoreDll>$(MSBuildThisFileDirectory)..\..\build\core\bin\CashSlothCore.dll</CashSlothCoreDll>
   </PropertyGroup>
 
   <Target Name="CopyCashSlothCore" AfterTargets="Build">
