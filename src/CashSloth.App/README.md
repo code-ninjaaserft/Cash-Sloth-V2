@@ -1,3 +1,3 @@
 # CashSloth.App
 
-Placeholder for the WPF (.NET) application layer; UI project scaffolding will be added in a later milestone.
+Minimal WPF (.NET) shell that calls the native core via P/Invoke. This is only a scaffold for Issue #1.

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CashSlothCoreDll>$(MSBuildThisFileDirectory)..\CashSloth.Core\build\bin\CashSlothCore.dll</CashSlothCoreDll>
+  </PropertyGroup>
+
+  <Target Name="CopyCashSlothCore" AfterTargets="Build">
+    <ItemGroup>
+      <CashSlothCoreDll Include="$(CashSlothCoreDll)" Condition="Exists('$(CashSlothCoreDll)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(CashSlothCoreDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="Exists('$(CashSlothCoreDll)')" />
+    <Message Importance="high" Text="CashSlothCore.dll not found at $(CashSlothCoreDll). Build the native core via CMake first." Condition="!Exists('$(CashSlothCoreDll)')" />
+  </Target>
+</Project>

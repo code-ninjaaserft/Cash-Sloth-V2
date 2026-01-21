@@ -1,3 +1,3 @@
 # CashSloth.CoreApi
 
-Placeholder for the C-API boundary that will expose the core library to external consumers.
+Placeholder for the C-API boundary. For Issue #1 the exported header lives in `CashSloth.Core/include`.
