@@ -6,9 +6,14 @@
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <Button Grid.Row="0" Content="Init Core" Width="120" Height="32" Click="OnInitCoreClick" />
-    <TextBlock Grid.Row="1" Margin="0,16,0,0" x:Name="InitResultText" Text="Core not initialized." />
+    <Button Grid.Row="0" Content="Init Core" Width="140" Height="32" Click="OnInitCoreClick" />
+    <TextBlock Grid.Row="1" Margin="0,12,0,0" x:Name="InitResultText" Text="Core not initialized." />
+
+    <Button Grid.Row="2" Margin="0,16,0,0" Content="Get Version JSON" Width="140" Height="32" Click="OnGetVersionClick" />
+    <TextBlock Grid.Row="3" Margin="0,12,0,0" x:Name="VersionJsonText" Text="Version JSON will appear here." TextWrapping="Wrap" />
   </Grid>
 </Window>

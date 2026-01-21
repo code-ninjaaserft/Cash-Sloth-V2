@@ -37,7 +37,7 @@ The native build outputs `CashSlothCore.dll` to `build/core/bin`, and the WPF pr
 ## Design rules
 - Monetary values in the core are stored as **int64 cents**.
 - The C++ core is the single source of truth for business logic.
-- The ABI boundary will use **JSON over `char*`** with an explicit **free** function pattern (planned, not implemented yet).
+- The ABI boundary uses **JSON over `char*`** with an explicit **free** function pattern (see [docs/ABI.md](docs/ABI.md)).
 - WPF calls into the C-API via P/Invoke; the C-API remains the only native boundary.
 
 ## Status

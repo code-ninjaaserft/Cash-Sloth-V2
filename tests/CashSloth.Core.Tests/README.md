@@ -1,3 +1,3 @@
 # CashSloth.Core.Tests
 
-Placeholder for future C++ unit tests (framework choice to be decided).
+Minimal native contract test coverage for the C-API (built via CMake/CTest).

@@ -1,3 +1,4 @@
 # CashSloth.App
 
-Minimal WPF (.NET) shell that calls the native core via P/Invoke. This is only a scaffold for Issue #1.
+Minimal WPF (.NET) shell that calls the native core via P/Invoke. Provides basic controls to initialize
+the core and request the version JSON.
