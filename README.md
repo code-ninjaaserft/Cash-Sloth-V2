@@ -35,6 +35,13 @@ The design is layered: **Core (C++) → C-API → WPF (.NET) via P/Invoke**. The
 ## Status
 Scaffold only — no functional code yet.
 
+## Roadmap
+Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
+
+## Contribution workflow
+- Use the issue templates for bugs, features, chores, and refactors.
+- Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
+
 ## Next steps
 1. [ ] Create the WPF project (`CashSloth.App`) and solution structure.
 2. [ ] Flesh out the C++ core library build (`CashSloth.Core`) via CMake.

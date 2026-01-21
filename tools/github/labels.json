@@ -1,0 +1,87 @@
+[
+  {
+    "name": "milestone:qen-gv",
+    "color": "5b2c83",
+    "description": "Scope tagged for QEN-GV milestone"
+  },
+  {
+    "name": "milestone:august",
+    "color": "1f6feb",
+    "description": "Scope tagged for August milestone"
+  },
+  {
+    "name": "area:core",
+    "color": "0e8a16",
+    "description": "Core C++ library"
+  },
+  {
+    "name": "area:capi",
+    "color": "0e8a9e",
+    "description": "C-API boundary"
+  },
+  {
+    "name": "area:wpf",
+    "color": "5319e7",
+    "description": "WPF application"
+  },
+  {
+    "name": "area:ci",
+    "color": "cfd3d7",
+    "description": "CI/CD workflows"
+  },
+  {
+    "name": "area:docs",
+    "color": "0075ca",
+    "description": "Documentation"
+  },
+  {
+    "name": "area:tests",
+    "color": "b60205",
+    "description": "Testing"
+  },
+  {
+    "name": "type:feature",
+    "color": "a2eeef",
+    "description": "New feature"
+  },
+  {
+    "name": "type:bug",
+    "color": "d73a4a",
+    "description": "Bug fix"
+  },
+  {
+    "name": "type:chore",
+    "color": "fef2c0",
+    "description": "Maintenance or chores"
+  },
+  {
+    "name": "type:refactor",
+    "color": "fbca04",
+    "description": "Refactoring"
+  },
+  {
+    "name": "priority:P0",
+    "color": "b60205",
+    "description": "Must-have"
+  },
+  {
+    "name": "priority:P1",
+    "color": "d93f0b",
+    "description": "High priority"
+  },
+  {
+    "name": "priority:P2",
+    "color": "fbca04",
+    "description": "Normal priority"
+  },
+  {
+    "name": "status:blocked",
+    "color": "e4e669",
+    "description": "Blocked by dependency"
+  },
+  {
+    "name": "status:needs-review",
+    "color": "5319e7",
+    "description": "Needs triage or review"
+  }
+]
