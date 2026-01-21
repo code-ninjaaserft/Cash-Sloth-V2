@@ -1,1 +1,74 @@
-# Placeholder for future release workflow.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Configure CMake (Core)
+        run: |
+          cmake -S src/CashSloth.Core -B build/core -G "Visual Studio 17 2022" -A x64
+
+      - name: Build Core (Release)
+        run: |
+          cmake --build build/core --config Release
+
+      - name: Publish WPF App (if csproj exists)
+        shell: pwsh
+        run: |
+          $outDir = "build/app_publish"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          $csproj = Get-ChildItem -Path "src/CashSloth.App" -Filter "*.csproj" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -eq $csproj) {
+            Write-Host "No .csproj found under src/CashSloth.App yet; skipping dotnet publish."
+            exit 0
+          }
+
+          dotnet restore $csproj.FullName
+          dotnet publish $csproj.FullName -c Release -o $outDir --no-restore
+
+      - name: Copy Core DLL into App output (best-effort)
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Path "build/core" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $appOut = "build/app_publish"
+          if (($null -ne $dll) -and (Test-Path $appOut)) {
+            Copy-Item $dll.FullName -Destination $appOut -Force
+            Write-Host "Copied core DLL: $($dll.Name) -> $appOut"
+          } else {
+            Write-Host "Core DLL or app output not found; skipping DLL copy."
+          }
+
+      - name: Package ZIP
+        shell: pwsh
+        run: |
+          $zip = "cash-sloth-v2-${{ github.ref_name }}-windows.zip"
+          if (Test-Path "build/app_publish") {
+            Compress-Archive -Path "build/app_publish\*" -DestinationPath $zip -Force
+          } else {
+            # If app isn't present yet, still package core build outputs
+            Compress-Archive -Path "build/core\*" -DestinationPath $zip -Force
+          }
+          echo "ZIP_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
