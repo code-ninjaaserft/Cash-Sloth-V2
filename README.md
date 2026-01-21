@@ -1,7 +1,7 @@
 # Cash-Sloth v2
 
 ## What is this?
-Cash-Sloth v2 is a fresh, modular rebuild of the Cash-Sloth point-of-sale tooling, with a native core and a modern WPF front end. This repository currently contains only the scaffolded layout and placeholders for future implementation.
+Cash-Sloth v2 is a fresh, modular rebuild of the Cash-Sloth point-of-sale tooling, with a native core and a modern WPF front end. This repository currently contains a buildable scaffold: a minimal C++ core DLL with a C-API boundary and a WPF shell that calls into it.
 
 ## Architecture
 The design is layered: **Core (C++) → C-API → WPF (.NET) via P/Invoke**. The core owns business rules and data shaping; the C-API offers a stable ABI boundary; the WPF app focuses on presentation and workflow.
@@ -26,6 +26,14 @@ The design is layered: **Core (C++) → C-API → WPF (.NET) via P/Invoke**. The
 └── README.md
 ```
 
+## Local builds (Windows)
+```powershell
+cmake -S src/CashSloth.Core -B build/core
+cmake --build build/core --config Release
+dotnet build src/CashSloth.App/CashSloth.App.csproj
+```
+The native build outputs `CashSlothCore.dll` to `build/core/bin`, and the WPF project copies it to its output folder on build.
+
 ## Design rules
 - Monetary values in the core are stored as **int64 cents**.
 - The C++ core is the single source of truth for business logic.
@@ -33,7 +41,7 @@ The design is layered: **Core (C++) → C-API → WPF (.NET) via P/Invoke**. The
 - WPF calls into the C-API via P/Invoke; the C-API remains the only native boundary.
 
 ## Status
-Scaffold only — no functional code yet.
+Scaffold only — core DLL + WPF shell are wired up, but no business logic yet.
 
 ## Roadmap
 Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
@@ -43,11 +51,9 @@ Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [do
 - Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
 
 ## Next steps
-1. [ ] Create the WPF project (`CashSloth.App`) and solution structure.
-2. [ ] Flesh out the C++ core library build (`CashSloth.Core`) via CMake.
-3. [ ] Define minimal C-API entry points and data contracts (`CashSloth.CoreApi`).
-4. [ ] Add a proof-of-life WPF P/Invoke call into the C-API.
-5. [ ] Add CI workflows for build and test.
+1. [ ] Add solution files and test projects.
+2. [ ] Define real C-API data contracts.
+3. [ ] Add CI workflows for build and test.
 
 > Barcode scanning, database persistence, and preset management are later milestones and are **not** scaffolded here yet.
 
