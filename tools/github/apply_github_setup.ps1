@@ -5,7 +5,7 @@ Param(
 $ErrorActionPreference = "Stop"
 
 function Write-Section($title) {
-    Write-Host "\n=== $title ===" -ForegroundColor Cyan
+    Write-Host "`n=== $title ===" -ForegroundColor Cyan
 }
 
 function Require-Gh {
@@ -40,13 +40,34 @@ function Invoke-Gh([string[]]$args, [string]$summary, [ref]$actions) {
         return
     }
 
-    & gh @args | Out-Null
-    $actions.Value += $summary
+    $output = & gh @args 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh $($args -join ' ') failed with exit code $LASTEXITCODE. Output: $output"
+    }
+
+    if ($summary) {
+        $actions.Value += $summary
+    }
+}
+
+function Invoke-GhJson([string[]]$args) {
+    $output = & gh @args 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh $($args -join ' ') failed with exit code $LASTEXITCODE. Output: $output"
+    }
+    return $output | ConvertFrom-Json
 }
 
 Require-Gh
 
 $repo = Get-Repo
+$repoInfo = Invoke-GhJson @("api", "repos/$repo")
+Write-Section "Preflight"
+Write-Host "Repository: $($repoInfo.full_name)"
+Write-Host "has_issues: $($repoInfo.has_issues)"
+if (-not $repoInfo.has_issues) {
+    throw "Repository $($repoInfo.full_name) has_issues is false. Enable issues before running this script."
+}
 $labelsPath = Join-Path $PSScriptRoot "labels.json"
 $milestonesPath = Join-Path $PSScriptRoot "milestones.json"
 $issuesQenPath = Join-Path $PSScriptRoot "issues_qen_gv.json"
@@ -68,7 +89,7 @@ foreach ($label in $labels) {
 
 Write-Section "Sync milestones"
 $milestones = Load-JsonFile $milestonesPath
-$existingMilestones = gh api "repos/$repo/milestones?state=all&per_page=100" | ConvertFrom-Json
+$existingMilestones = Invoke-GhJson @("api", "repos/$repo/milestones?state=all&per_page=100")
 foreach ($milestone in $milestones) {
     $existing = $existingMilestones | Where-Object { $_.title -eq $milestone.title } | Select-Object -First 1
     $title = $milestone.title
@@ -98,7 +119,8 @@ foreach ($milestone in $milestones) {
 }
 
 Write-Section "Sync issues"
-$existingIssues = gh api "repos/$repo/issues?state=all&per_page=100" | ConvertFrom-Json
+$existingIssues = Invoke-GhJson @("api", "repos/$repo/issues?state=all&per_page=100")
+$currentMilestones = Invoke-GhJson @("api", "repos/$repo/milestones?state=all&per_page=100")
 $issueSets = @(
     (Load-JsonFile $issuesQenPath),
     (Load-JsonFile $issuesAugustPath)
@@ -108,8 +130,12 @@ foreach ($issues in $issueSets) {
     foreach ($issue in $issues) {
         $title = $issue.title
         $body = $issue.body
-        $labels = $issue.labels -join ","
-        $milestone = $issue.milestone
+        $labels = $issue.labels
+        $milestoneTitle = $issue.milestone
+        $milestoneNumber = ($currentMilestones | Where-Object { $_.title -eq $milestoneTitle } | Select-Object -First 1).number
+        if (-not $milestoneNumber) {
+            throw "Milestone '$milestoneTitle' not found in GitHub for repo $repo. Create it first or update milestones.json."
+        }
         $tempBody = New-TemporaryFile
         Set-Content -Path $tempBody -Value $body -NoNewline
 
@@ -120,9 +146,11 @@ foreach ($issues in $issueSets) {
                 "--repo", $repo,
                 "--title", $title,
                 "--body-file", $tempBody,
-                "--milestone", $milestone,
-                "--add-label", $labels
+                "--milestone", $milestoneNumber
             )
+            foreach ($label in $labels) {
+                $args += @("--add-label", $label)
+            }
             Invoke-Gh $args "Updated issue: $title" ([ref]$issueActions)
         } else {
             $args = @(
@@ -130,9 +158,11 @@ foreach ($issues in $issueSets) {
                 "--repo", $repo,
                 "--title", $title,
                 "--body-file", $tempBody,
-                "--milestone", $milestone,
-                "--label", $labels
+                "--milestone", $milestoneNumber
             )
+            foreach ($label in $labels) {
+                $args += @("--label", $label)
+            }
             Invoke-Gh $args "Created issue: $title" ([ref]$issueActions)
         }
 
@@ -140,13 +170,22 @@ foreach ($issues in $issueSets) {
     }
 }
 
+Write-Section "Postflight"
+$issueList = Invoke-GhJson @("issue", "list", "--repo", $repo, "--limit", "5", "--json", "number")
+$issueListCount = @($issueList).Count
+Write-Host "Visible issues (gh issue list --limit 5): $issueListCount"
+if (-not $DryRun -and $issueActions.Count -gt 0 -and $issueListCount -eq 0) {
+    throw "Issues were created/updated ($($issueActions.Count)) but none are visible via 'gh issue list'. Verify that issues are enabled and the repository is correct."
+}
+
 Write-Section "Summary"
+Write-Host "Repository: $repo"
+Write-Host "has_issues: $($repoInfo.has_issues)"
 Write-Host "Labels: $($labelActions.Count) action(s)"
 $labelActions | ForEach-Object { Write-Host " - $_" }
 Write-Host "Milestones: $($milestoneActions.Count) action(s)"
 $milestoneActions | ForEach-Object { Write-Host " - $_" }
 Write-Host "Issues: $($issueActions.Count) action(s)"
 $issueActions | ForEach-Object { Write-Host " - $_" }
-
-Write-Host "\nRepository: $repo"
+Write-Host "Visible issues (gh issue list --limit 5): $issueListCount"
 Write-Host "Dry run: $DryRun"

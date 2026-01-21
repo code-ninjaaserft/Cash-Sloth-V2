@@ -51,19 +51,33 @@ jq -c '.[]' "$milestones_file" | while read -r ms; do
 done
 
 echo "=== Sync issues ==="
+existing_milestones=$(gh api "repos/$repo/milestones?state=all&per_page=100")
 existing_issues=$(gh api "repos/$repo/issues?state=all&per_page=100")
 for file in "$issues_qen_file" "$issues_aug_file"; do
   jq -c '.[]' "$file" | while read -r issue; do
     title=$(echo "$issue" | jq -r '.title')
     body=$(echo "$issue" | jq -r '.body')
     milestone=$(echo "$issue" | jq -r '.milestone')
-    labels=$(echo "$issue" | jq -r '.labels | join(",")')
+    labels=$(echo "$issue" | jq -r '.labels[]')
+    milestone_number=$(echo "$existing_milestones" | jq -r --arg title "$milestone" '.[] | select(.title == $title) | .number')
+    if [[ -z "$milestone_number" || "$milestone_number" == "null" ]]; then
+      echo "Milestone '$milestone' not found in GitHub for repo $repo." >&2
+      exit 1
+    fi
     number=$(echo "$existing_issues" | jq -r --arg title "$title" '.[] | select(.title == $title) | .number')
     if [[ -n "$number" ]]; then
-      gh issue edit "$number" --repo "$repo" --title "$title" --body "$body" --milestone "$milestone" --add-label "$labels" >/dev/null
+      args=(issue edit "$number" --repo "$repo" --title "$title" --body "$body" --milestone "$milestone_number")
+      while read -r label; do
+        args+=(--add-label "$label")
+      done <<< "$labels"
+      gh "${args[@]}" >/dev/null
       echo "Updated issue: $title"
     else
-      gh issue create --repo "$repo" --title "$title" --body "$body" --milestone "$milestone" --label "$labels" >/dev/null
+      args=(issue create --repo "$repo" --title "$title" --body "$body" --milestone "$milestone_number")
+      while read -r label; do
+        args+=(--label "$label")
+      done <<< "$labels"
+      gh "${args[@]}" >/dev/null
       echo "Created issue: $title"
     fi
   done
