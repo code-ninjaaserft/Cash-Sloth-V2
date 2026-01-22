@@ -36,6 +36,15 @@ human-readable error message retrievable via `cs_last_error()`.
 - `cs_cart_get_total_cents(cs_cart_t cart, long long* out_total_cents)` returns the current total in cents.
 - `cs_cart_get_lines_json(cs_cart_t cart, char** out_json)` returns a JSON summary; callers must free the
   returned buffer via `cs_free`.
+- `cs_cart_clear(cs_cart_t cart)` resets the cart lines and resets any payment `given_cents` to 0.
+
+## Payment functions
+- `cs_payment_set_given_cents(cs_cart_t cart, long long given_cents)` stores the amount tendered in cents.
+  - `given_cents` must be `>= 0`; otherwise returns `CS_ERROR_INVALID_ARGUMENT`.
+- `cs_payment_get_given_cents(cs_cart_t cart, long long* out_given_cents)` returns the last stored tendered
+  amount in cents.
+- `cs_payment_get_change_cents(cs_cart_t cart, long long* out_change_cents)` returns `given_cents - total_cents`.
+  - The change value can be negative when the tendered amount is insufficient.
 
 ## Cart JSON format
 `cs_cart_get_lines_json` returns a UTF-8 JSON object in this format (no pretty printing):

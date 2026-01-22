@@ -27,6 +27,7 @@ struct CartLine {
 class Cart {
  public:
   std::vector<CartLine> lines;
+  long long given_cents = 0;
 };
 
 bool lookup_unit_cents(const std::string& item_id, long long* out_unit_cents) {
@@ -52,6 +53,14 @@ bool lookup_unit_cents(const std::string& item_id, long long* out_unit_cents) {
 
 Cart* as_cart(cs_cart_t cart) {
   return static_cast<Cart*>(cart);
+}
+
+long long compute_total_cents(const Cart& cart) {
+  long long total = 0;
+  for (const auto& line : cart.lines) {
+    total += line.unit_cents * static_cast<long long>(line.qty);
+  }
+  return total;
 }
 
 std::string escape_json_string(const std::string& input) {
@@ -168,6 +177,7 @@ int cs_cart_clear(cs_cart_t cart) {
   }
 
   cart_ptr->lines.clear();
+  cart_ptr->given_cents = 0;
   set_last_error(nullptr);
   return CS_SUCCESS;
 }
@@ -234,12 +244,7 @@ int cs_cart_get_total_cents(cs_cart_t cart, long long* out_total_cents) {
     return CS_ERROR_INVALID_ARGUMENT;
   }
 
-  long long total = 0;
-  for (const auto& line : cart_ptr->lines) {
-    total += line.unit_cents * static_cast<long long>(line.qty);
-  }
-
-  *out_total_cents = total;
+  *out_total_cents = compute_total_cents(*cart_ptr);
   set_last_error(nullptr);
   return CS_SUCCESS;
 }
@@ -289,6 +294,55 @@ int cs_cart_get_lines_json(cs_cart_t cart, char** out_json) {
 
   std::memcpy(buffer, json.c_str(), size);
   *out_json = buffer;
+  set_last_error(nullptr);
+  return CS_SUCCESS;
+}
+
+int cs_payment_set_given_cents(cs_cart_t cart, long long given_cents) {
+  Cart* cart_ptr = as_cart(cart);
+  if (!cart_ptr) {
+    set_last_error("cart must not be null.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+  if (given_cents < 0) {
+    set_last_error("given_cents must be non-negative.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+
+  cart_ptr->given_cents = given_cents;
+  set_last_error(nullptr);
+  return CS_SUCCESS;
+}
+
+int cs_payment_get_change_cents(cs_cart_t cart, long long* out_change_cents) {
+  Cart* cart_ptr = as_cart(cart);
+  if (!cart_ptr) {
+    set_last_error("cart must not be null.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+  if (!out_change_cents) {
+    set_last_error("out_change_cents must not be null.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+
+  const long long total = compute_total_cents(*cart_ptr);
+  *out_change_cents = cart_ptr->given_cents - total;
+  set_last_error(nullptr);
+  return CS_SUCCESS;
+}
+
+int cs_payment_get_given_cents(cs_cart_t cart, long long* out_given_cents) {
+  Cart* cart_ptr = as_cart(cart);
+  if (!cart_ptr) {
+    set_last_error("cart must not be null.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+  if (!out_given_cents) {
+    set_last_error("out_given_cents must not be null.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+
+  *out_given_cents = cart_ptr->given_cents;
   set_last_error(nullptr);
   return CS_SUCCESS;
 }
