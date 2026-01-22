@@ -28,6 +28,8 @@ CS_API void cs_shutdown();
 CS_API const char* cs_last_error();
 CS_API void cs_free(void* p);
 CS_API int cs_get_version(char** out_json);
+CS_API int cs_catalog_load_json(const char* json);
+CS_API int cs_catalog_get_json(char** out_json);
 
 CS_API int cs_cart_new(cs_cart_t* out_cart);
 CS_API int cs_cart_free(cs_cart_t cart);
