@@ -42,7 +42,8 @@ The native build outputs `CashSlothCore.dll` to `build/core/bin`, and the WPF pr
 - WPF calls into the C-API via P/Invoke; the C-API remains the only native boundary.
 
 ## Status
-Core DLL + WPF shell are wired up, with a minimal cart MVP (add/remove/clear/total) in the native core.
+Core DLL + WPF shell are wired up, with a minimal cart + payment MVP (add/remove/clear/total, given/change)
+in the native core.
 
 ## Roadmap
 Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
