@@ -3,9 +3,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <mutex>
 #include <new>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
+
+#include "mini_json.hpp"
 
 namespace {
 thread_local std::string g_last_error;
@@ -30,25 +36,32 @@ class Cart {
   long long given_cents = 0;
 };
 
+struct CatalogItem {
+  std::string id;
+  std::string name;
+  long long unit_cents = 0;
+};
+
+struct CatalogState {
+  std::vector<CatalogItem> items;
+  std::unordered_map<std::string, size_t> index_by_id;
+};
+
+std::mutex g_catalog_mutex;
+CatalogState g_catalog;
+
 bool lookup_unit_cents(const std::string& item_id, long long* out_unit_cents) {
   if (!out_unit_cents) {
     return false;
   }
 
-  if (item_id == "COFFEE") {
-    *out_unit_cents = 500;
-    return true;
+  std::lock_guard<std::mutex> lock(g_catalog_mutex);
+  auto it = g_catalog.index_by_id.find(item_id);
+  if (it == g_catalog.index_by_id.end()) {
+    return false;
   }
-  if (item_id == "TEA") {
-    *out_unit_cents = 400;
-    return true;
-  }
-  if (item_id == "WATER") {
-    *out_unit_cents = 300;
-    return true;
-  }
-
-  return false;
+  *out_unit_cents = g_catalog.items[it->second].unit_cents;
+  return true;
 }
 
 Cart* as_cart(cs_cart_t cart) {
@@ -102,6 +115,117 @@ std::string escape_json_string(const std::string& input) {
   }
   return output;
 }
+
+bool parse_catalog_json(const char* json, CatalogState* out_state, std::string* out_error) {
+  if (!json || json[0] == '\0') {
+    if (out_error) {
+      *out_error = "Catalog JSON must not be null or empty.";
+    }
+    return false;
+  }
+  if (!out_state) {
+    if (out_error) {
+      *out_error = "Catalog output state must not be null.";
+    }
+    return false;
+  }
+
+  mini_json::Value root;
+  std::string parse_error;
+  if (!mini_json::parse(json, &root, &parse_error)) {
+    if (out_error) {
+      *out_error = "Invalid catalog JSON: " + parse_error;
+    }
+    return false;
+  }
+
+  if (!root.is_object()) {
+    if (out_error) {
+      *out_error = "Catalog JSON must be an object.";
+    }
+    return false;
+  }
+
+  const auto& root_obj = root.as_object();
+  auto items_it = root_obj.find("items");
+  if (items_it == root_obj.end() || !items_it->second.is_array()) {
+    if (out_error) {
+      *out_error = "Catalog JSON must include an items array.";
+    }
+    return false;
+  }
+
+  CatalogState new_state;
+  std::unordered_set<std::string> seen_ids;
+  const auto& items = items_it->second.as_array();
+  new_state.items.reserve(items.size());
+
+  for (const auto& item_value : items) {
+    if (!item_value.is_object()) {
+      if (out_error) {
+        *out_error = "Catalog items must be JSON objects.";
+      }
+      return false;
+    }
+    const auto& item_obj = item_value.as_object();
+    auto id_it = item_obj.find("id");
+    if (id_it == item_obj.end() || !id_it->second.is_string()) {
+      if (out_error) {
+        *out_error = "Catalog item id must be a string.";
+      }
+      return false;
+    }
+    const std::string& id = id_it->second.as_string();
+    if (id.empty()) {
+      if (out_error) {
+        *out_error = "Catalog item id must not be empty.";
+      }
+      return false;
+    }
+    if (!seen_ids.insert(id).second) {
+      if (out_error) {
+        *out_error = "Duplicate catalog item id: " + id;
+      }
+      return false;
+    }
+
+    auto unit_it = item_obj.find("unit_cents");
+    if (unit_it == item_obj.end() || !unit_it->second.is_number() ||
+        !unit_it->second.number_is_integer()) {
+      if (out_error) {
+        *out_error = "Catalog item unit_cents must be an integer.";
+      }
+      return false;
+    }
+    long double unit_value = unit_it->second.as_number();
+    if (unit_value < 0 ||
+        unit_value > static_cast<long double>(std::numeric_limits<long long>::max())) {
+      if (out_error) {
+        *out_error = "Catalog item unit_cents must be non-negative.";
+      }
+      return false;
+    }
+
+    std::string name;
+    auto name_it = item_obj.find("name");
+    if (name_it != item_obj.end()) {
+      if (!name_it->second.is_string()) {
+        if (out_error) {
+          *out_error = "Catalog item name must be a string.";
+        }
+        return false;
+      }
+      name = name_it->second.as_string();
+    }
+
+    CatalogItem item{id, name, static_cast<long long>(unit_value)};
+    new_state.index_by_id[id] = new_state.items.size();
+    new_state.items.push_back(std::move(item));
+  }
+
+  *out_state = std::move(new_state);
+  return true;
+}
 }  // namespace
 
 int cs_init() {
@@ -136,6 +260,66 @@ int cs_get_version(char** out_json) {
   }
 
   std::memcpy(buffer, kVersionJson, size);
+  *out_json = buffer;
+  set_last_error(nullptr);
+  return CS_SUCCESS;
+}
+
+int cs_catalog_load_json(const char* json) {
+  CatalogState new_state;
+  std::string error;
+  if (!parse_catalog_json(json, &new_state, &error)) {
+    set_last_error(error.c_str());
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(g_catalog_mutex);
+    g_catalog = std::move(new_state);
+  }
+
+  set_last_error(nullptr);
+  return CS_SUCCESS;
+}
+
+int cs_catalog_get_json(char** out_json) {
+  if (!out_json) {
+    set_last_error("out_json must not be null.");
+    return CS_ERROR_INVALID_ARGUMENT;
+  }
+
+  std::vector<CatalogItem> items_snapshot;
+  {
+    std::lock_guard<std::mutex> lock(g_catalog_mutex);
+    items_snapshot = g_catalog.items;
+  }
+
+  std::string json;
+  json.reserve(128);
+  json += "{\"items\":[";
+  for (size_t i = 0; i < items_snapshot.size(); ++i) {
+    const auto& item = items_snapshot[i];
+    if (i > 0) {
+      json += ",";
+    }
+    json += "{\"id\":\"";
+    json += escape_json_string(item.id);
+    json += "\",\"name\":\"";
+    json += escape_json_string(item.name);
+    json += "\",\"unit_cents\":";
+    json += std::to_string(item.unit_cents);
+    json += "}";
+  }
+  json += "]}";
+
+  const size_t size = json.size() + 1;
+  char* buffer = static_cast<char*>(std::malloc(size));
+  if (!buffer) {
+    set_last_error("Out of memory allocating catalog JSON.");
+    return CS_ERROR_OUT_OF_MEMORY;
+  }
+
+  std::memcpy(buffer, json.c_str(), size);
   *out_json = buffer;
   set_last_error(nullptr);
   return CS_SUCCESS;

@@ -9,6 +9,8 @@ add_library(CashSlothCore SHARED
 target_include_directories(CashSlothCore
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_compile_definitions(CashSlothCore PRIVATE CS_BUILD_DLL)

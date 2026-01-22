@@ -17,6 +17,14 @@ int main() {
     return 1;
   }
 
+  const char* catalog_json =
+      "{\"items\":[{\"id\":\"COFFEE\",\"name\":\"Coffee\",\"unit_cents\":500}]}";
+  if (!check(cs_catalog_load_json(catalog_json) == CS_SUCCESS,
+             "cs_catalog_load_json failed.")) {
+    cs_shutdown();
+    return 1;
+  }
+
   cs_cart_t cart = nullptr;
   if (!check(cs_cart_new(&cart) == CS_SUCCESS, "cs_cart_new failed.")) {
     cs_shutdown();
