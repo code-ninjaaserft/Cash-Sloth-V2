@@ -21,11 +21,21 @@ enum {
   CS_ERROR_INTERNAL = 100
 };
 
+typedef void* cs_cart_t;
+
 CS_API int cs_init();
 CS_API void cs_shutdown();
 CS_API const char* cs_last_error();
 CS_API void cs_free(void* p);
 CS_API int cs_get_version(char** out_json);
+
+CS_API int cs_cart_new(cs_cart_t* out_cart);
+CS_API int cs_cart_free(cs_cart_t cart);
+CS_API int cs_cart_clear(cs_cart_t cart);
+CS_API int cs_cart_add_item_by_id(cs_cart_t cart, const char* item_id, int qty);
+CS_API int cs_cart_remove_line(cs_cart_t cart, int line_index);
+CS_API int cs_cart_get_total_cents(cs_cart_t cart, long long* out_total_cents);
+CS_API int cs_cart_get_lines_json(cs_cart_t cart, char** out_json);
 
 #ifdef __cplusplus
 }

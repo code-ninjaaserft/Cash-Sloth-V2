@@ -6,6 +6,10 @@ add_executable(CashSlothCoreContractTests
   version_contract_test.cpp
 )
 
+add_executable(CashSlothCoreCartContractTests
+  cart_contract_test.cpp
+)
+
 target_include_directories(CashSlothCoreContractTests
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src/CashSloth.Core/include
@@ -20,3 +24,18 @@ set_target_properties(CashSlothCoreContractTests PROPERTIES
 )
 
 add_test(NAME CashSlothCoreContractTests COMMAND $<TARGET_FILE:CashSlothCoreContractTests>)
+
+target_include_directories(CashSlothCoreCartContractTests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/CashSloth.Core/include
+)
+
+target_link_libraries(CashSlothCoreCartContractTests PRIVATE CashSlothCore)
+
+target_compile_features(CashSlothCoreCartContractTests PRIVATE cxx_std_17)
+
+set_target_properties(CashSlothCoreCartContractTests PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME CashSlothCoreCartContractTests COMMAND $<TARGET_FILE:CashSlothCoreCartContractTests>)
