@@ -53,6 +53,11 @@
       <Button Content="+10 CHF" Tag="1000" Width="90" Height="32" Margin="6,0,0,0" Click="OnAddGivenClick" />
       <Button Content="+20 CHF" Tag="2000" Width="90" Height="32" Margin="6,0,0,0" Click="OnAddGivenClick" />
       <Button Content="Given reset" Width="110" Height="32" Margin="6,0,0,0" Click="OnResetGivenClick" />
+
+      <Separator Margin="16,0,16,0" Width="1" />
+
+      <Button Content="Open Customer Display" Width="190" Height="32" Click="OnOpenCustomerDisplayClick" />
+      <Button Content="Close Customer Display" Width="190" Height="32" Margin="6,0,0,0" Click="OnCloseCustomerDisplayClick" />
     </StackPanel>
 
     <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,12,0,0">
