@@ -37,6 +37,50 @@ int main() {
     return 1;
   }
 
+  char* empty_json = nullptr;
+  if (!check(cs_cart_get_lines_json(cart, &empty_json) == CS_SUCCESS,
+             "cs_cart_get_lines_json for empty cart failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(empty_json != nullptr && std::strlen(empty_json) > 0,
+             "cs_cart_get_lines_json for empty cart returned empty JSON.")) {
+    cs_free(empty_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(empty_json, "\"total_cents\":0") != nullptr,
+             "Empty cart JSON missing total_cents 0.")) {
+    cs_free(empty_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(empty_json, "\"given_cents\":0") != nullptr,
+             "Empty cart JSON missing given_cents 0.")) {
+    cs_free(empty_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(empty_json, "\"change_cents\":0") != nullptr,
+             "Empty cart JSON missing change_cents 0.")) {
+    cs_free(empty_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(empty_json, "\"lines\":[]") != nullptr,
+             "Empty cart JSON missing empty lines array.")) {
+    cs_free(empty_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  cs_free(empty_json);
+
   if (!check(cs_cart_add_item_by_id(cart, "COFFEE", 2) == CS_SUCCESS,
              "cs_cart_add_item_by_id COFFEE qty 2 failed.")) {
     cs_cart_free(cart);
@@ -97,8 +141,36 @@ int main() {
     cs_shutdown();
     return 1;
   }
-  if (!check(std::strstr(json, "\"item_id\":\"COFFEE\"") != nullptr,
-             "JSON missing COFFEE item_id.")) {
+  if (!check(std::strstr(json, "\"given_cents\":0") != nullptr,
+             "JSON missing given_cents 0.")) {
+    cs_free(json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(json, "\"change_cents\":0") != nullptr,
+             "JSON missing change_cents 0.")) {
+    cs_free(json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(json, "\"id\":\"COFFEE\"") != nullptr,
+             "JSON missing COFFEE id.")) {
+    cs_free(json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(json, "\"name\":\"Coffee\"") != nullptr,
+             "JSON missing COFFEE name.")) {
+    cs_free(json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(json, "\"line_total_cents\":1500") != nullptr,
+             "JSON missing line_total_cents 1500.")) {
     cs_free(json);
     cs_cart_free(cart);
     cs_shutdown();
@@ -129,6 +201,12 @@ int main() {
     cs_shutdown();
     return 1;
   }
+  if (!check(cs_payment_set_given_cents(cart, 1200) == CS_SUCCESS,
+             "cs_payment_set_given_cents 1200 before clear failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
   if (!check(cs_cart_clear(cart) == CS_SUCCESS, "cs_cart_clear failed.")) {
     cs_cart_free(cart);
     cs_shutdown();
@@ -145,6 +223,123 @@ int main() {
     cs_shutdown();
     return 1;
   }
+
+  char* clear_json = nullptr;
+  if (!check(cs_cart_get_lines_json(cart, &clear_json) == CS_SUCCESS,
+             "cs_cart_get_lines_json after clear failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(clear_json, "\"given_cents\":0") != nullptr,
+             "Clear JSON missing given_cents 0.")) {
+    cs_free(clear_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(clear_json, "\"lines\":[]") != nullptr,
+             "Clear JSON missing empty lines array.")) {
+    cs_free(clear_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  cs_free(clear_json);
+
+  if (!check(cs_cart_add_item_by_id(cart, "TEA", 2) == CS_SUCCESS,
+             "cs_cart_add_item_by_id TEA qty 2 failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(cs_payment_set_given_cents(cart, 1000) == CS_SUCCESS,
+             "cs_payment_set_given_cents 1000 failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  char* payment_json = nullptr;
+  if (!check(cs_cart_get_lines_json(cart, &payment_json) == CS_SUCCESS,
+             "cs_cart_get_lines_json for payment scenario failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(payment_json, "\"total_cents\":800") != nullptr,
+             "Payment JSON missing total_cents 800.")) {
+    cs_free(payment_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(payment_json, "\"given_cents\":1000") != nullptr,
+             "Payment JSON missing given_cents 1000.")) {
+    cs_free(payment_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(payment_json, "\"change_cents\":200") != nullptr,
+             "Payment JSON missing change_cents 200.")) {
+    cs_free(payment_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(payment_json, "\"line_total_cents\":800") != nullptr,
+             "Payment JSON missing line_total_cents 800.")) {
+    cs_free(payment_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  cs_free(payment_json);
+
+  if (!check(cs_cart_clear(cart) == CS_SUCCESS, "cs_cart_clear before raw change failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(cs_cart_add_item_by_id(cart, "TEA", 1) == CS_SUCCESS,
+             "cs_cart_add_item_by_id TEA qty 1 for raw change failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(cs_payment_set_given_cents(cart, 100) == CS_SUCCESS,
+             "cs_payment_set_given_cents 100 failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  long long raw_change_cents = 0;
+  if (!check(cs_payment_get_change_cents(cart, &raw_change_cents) == CS_SUCCESS,
+             "cs_payment_get_change_cents for raw change failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(raw_change_cents == -300, "Raw change should be -300 when given is less than total.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  char* raw_change_json = nullptr;
+  if (!check(cs_cart_get_lines_json(cart, &raw_change_json) == CS_SUCCESS,
+             "cs_cart_get_lines_json for raw change failed.")) {
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  if (!check(std::strstr(raw_change_json, "\"change_cents\":0") != nullptr,
+             "Raw change JSON should clamp change_cents to 0.")) {
+    cs_free(raw_change_json);
+    cs_cart_free(cart);
+    cs_shutdown();
+    return 1;
+  }
+  cs_free(raw_change_json);
 
   if (!check(cs_cart_add_item_by_id(cart, "COFFEE", 0) == CS_ERROR_INVALID_ARGUMENT,
              "cs_cart_add_item_by_id qty 0 should fail.")) {

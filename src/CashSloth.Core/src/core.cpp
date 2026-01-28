@@ -64,6 +64,20 @@ bool lookup_unit_cents(const std::string& item_id, long long* out_unit_cents) {
   return true;
 }
 
+bool lookup_item_name(const std::string& item_id, std::string* out_name) {
+  if (!out_name) {
+    return false;
+  }
+
+  std::lock_guard<std::mutex> lock(g_catalog_mutex);
+  auto it = g_catalog.index_by_id.find(item_id);
+  if (it == g_catalog.index_by_id.end()) {
+    return false;
+  }
+  *out_name = g_catalog.items[it->second].name;
+  return true;
+}
+
 Cart* as_cart(cs_cart_t cart) {
   return static_cast<Cart*>(cart);
 }
@@ -445,28 +459,41 @@ int cs_cart_get_lines_json(cs_cart_t cart, char** out_json) {
   }
 
   long long total = 0;
+  const long long given_cents = cart_ptr->given_cents;
   std::string json;
   json.reserve(128);
   json += "{\"lines\":[";
   for (size_t i = 0; i < cart_ptr->lines.size(); ++i) {
     const auto& line = cart_ptr->lines[i];
-    const long long line_cents = line.unit_cents * static_cast<long long>(line.qty);
-    total += line_cents;
+    const long long line_total_cents = line.unit_cents * static_cast<long long>(line.qty);
+    total += line_total_cents;
+    std::string name;
+    if (!lookup_item_name(line.item_id, &name)) {
+      name.clear();
+    }
     if (i > 0) {
       json += ",";
     }
-    json += "{\"item_id\":\"";
+    json += "{\"id\":\"";
     json += escape_json_string(line.item_id);
-    json += "\",\"qty\":";
-    json += std::to_string(line.qty);
-    json += ",\"unit_cents\":";
+    json += "\",\"name\":\"";
+    json += escape_json_string(name);
+    json += "\",\"unit_cents\":";
     json += std::to_string(line.unit_cents);
-    json += ",\"line_cents\":";
-    json += std::to_string(line_cents);
+    json += ",\"qty\":";
+    json += std::to_string(line.qty);
+    json += ",\"line_total_cents\":";
+    json += std::to_string(line_total_cents);
     json += "}";
   }
   json += "],\"total_cents\":";
   json += std::to_string(total);
+  json += ",\"given_cents\":";
+  json += std::to_string(given_cents);
+  const long long change_cents =
+      given_cents > total ? given_cents - total : 0;
+  json += ",\"change_cents\":";
+  json += std::to_string(change_cents);
   json += "}";
 
   const size_t size = json.size() + 1;
