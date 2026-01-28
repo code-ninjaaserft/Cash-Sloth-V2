@@ -13,7 +13,7 @@ public partial class CustomerDisplayWindow : Window
         CartLinesGrid.ItemsSource = _lines;
     }
 
-    public void Update(CartSnapshot snapshot)
+    internal void Update(CartSnapshot snapshot)
     {
         _lines.Clear();
         if (snapshot.Lines != null)
