@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
+using Screen = System.Windows.Forms.Screen;
 using System.Windows.Media;
 
 namespace CashSloth.App;
