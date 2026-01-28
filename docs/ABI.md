@@ -67,6 +67,8 @@ Catalog JSON uses this MVP format (no pretty printing required):
 ## Cart JSON format
 `cs_cart_get_lines_json` returns a UTF-8 JSON object in this format (no pretty printing):
 ```json
-{"lines":[{"item_id":"COFFEE","qty":2,"unit_cents":500,"line_cents":1000}],"total_cents":1000}
+{"lines":[{"id":"COFFEE","name":"Coffee","unit_cents":500,"qty":2,"line_total_cents":1000}],"total_cents":1000,"given_cents":0,"change_cents":0}
 ```
-`lines` are ordered in insertion order and `total_cents` is the sum of `line_cents`.
+`lines` are ordered in insertion order, `total_cents` is the sum of `line_total_cents`, and
+`change_cents` is clamped at zero (the raw change is still available via
+`cs_payment_get_change_cents`).
