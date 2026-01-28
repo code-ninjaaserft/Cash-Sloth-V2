@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Forms;
+using System.Windows.Media;
 
 namespace CashSloth.App;
 
@@ -26,6 +27,8 @@ public partial class MainWindow : Window
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
+    private CartSnapshot? _lastSnapshot;
+    private CustomerDisplayWindow? _customerDisplayWindow;
 
     public MainWindow()
     {
@@ -58,6 +61,8 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        CloseCustomerDisplay();
+
         if (_cart != IntPtr.Zero)
         {
             TryCoreCall(NativeMethods.cs_cart_free(_cart), "free cart");
@@ -198,14 +203,16 @@ public partial class MainWindow : Window
                     _lines.Add(new CartLineView(
                         line.Name ?? string.Empty,
                         line.Qty,
-                        FormatCents(line.LineTotalCents)));
+                        CurrencyFormatter.FormatCents(line.LineTotalCents)));
                 }
             }
 
-            TotalValueText.Text = FormatCents(snapshot.TotalCents);
-            GivenValueText.Text = FormatCents(snapshot.GivenCents);
-            ChangeValueText.Text = FormatCents(snapshot.ChangeCents);
+            TotalValueText.Text = CurrencyFormatter.FormatCents(snapshot.TotalCents);
+            GivenValueText.Text = CurrencyFormatter.FormatCents(snapshot.GivenCents);
+            ChangeValueText.Text = CurrencyFormatter.FormatCents(snapshot.ChangeCents);
             _currentGivenCents = snapshot.GivenCents;
+            _lastSnapshot = snapshot;
+            _customerDisplayWindow?.Update(snapshot);
             StatusText.Text = string.Empty;
         }
         catch (JsonException ex)
@@ -245,24 +252,65 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private static string FormatCents(long cents)
+    private void OnOpenCustomerDisplayClick(object sender, RoutedEventArgs e)
     {
-        var value = cents / 100.0;
-        return string.Format(CultureInfo.InvariantCulture, "CHF {0:0.00}", value);
+        if (_customerDisplayWindow is { IsVisible: true })
+        {
+            if (_customerDisplayWindow.WindowState == WindowState.Minimized)
+            {
+                _customerDisplayWindow.WindowState = WindowState.Normal;
+            }
+
+            _customerDisplayWindow.Activate();
+            return;
+        }
+
+        _customerDisplayWindow = new CustomerDisplayWindow();
+        _customerDisplayWindow.Closed += (_, _) => _customerDisplayWindow = null;
+
+        PositionCustomerDisplayWindow(_customerDisplayWindow);
+        _customerDisplayWindow.Show();
+
+        if (_lastSnapshot != null)
+        {
+            _customerDisplayWindow.Update(_lastSnapshot);
+        }
     }
 
-    private sealed record CartSnapshot(
-        [property: JsonPropertyName("lines")] CartLine[]? Lines,
-        [property: JsonPropertyName("total_cents")] long TotalCents,
-        [property: JsonPropertyName("given_cents")] long GivenCents,
-        [property: JsonPropertyName("change_cents")] long ChangeCents);
+    private void OnCloseCustomerDisplayClick(object sender, RoutedEventArgs e)
+    {
+        CloseCustomerDisplay();
+    }
 
-    private sealed record CartLine(
-        [property: JsonPropertyName("id")] string? Id,
-        [property: JsonPropertyName("name")] string? Name,
-        [property: JsonPropertyName("unit_cents")] long UnitCents,
-        [property: JsonPropertyName("qty")] int Qty,
-        [property: JsonPropertyName("line_total_cents")] long LineTotalCents);
+    private void CloseCustomerDisplay()
+    {
+        if (_customerDisplayWindow == null)
+        {
+            return;
+        }
 
-    private sealed record CartLineView(string Name, int Quantity, string LineTotalDisplay);
+        var window = _customerDisplayWindow;
+        _customerDisplayWindow = null;
+        window.Close();
+    }
+
+    private void PositionCustomerDisplayWindow(Window window)
+    {
+        var screens = Screen.AllScreens;
+        var targetScreen = screens.FirstOrDefault(screen => !screen.Primary);
+        if (targetScreen == null)
+        {
+            return;
+        }
+
+        var workingArea = targetScreen.WorkingArea;
+        var dpi = VisualTreeHelper.GetDpi(this);
+
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.Left = workingArea.Left / dpi.DpiScaleX;
+        window.Top = workingArea.Top / dpi.DpiScaleY;
+        window.Width = workingArea.Width / dpi.DpiScaleX;
+        window.Height = workingArea.Height / dpi.DpiScaleY;
+        window.WindowState = WindowState.Maximized;
+    }
 }
