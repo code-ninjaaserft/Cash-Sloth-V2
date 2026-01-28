@@ -1,4 +1,4 @@
 # CashSloth.App
 
-Minimal WPF (.NET) shell that calls the native core via P/Invoke. Provides basic controls to initialize
-the core and request the version JSON.
+WPF (.NET) MVP POS shell that calls the native core via P/Invoke. The app loads a demo catalog on startup,
+keeps a cart for the session, and renders cart/payment state from the core JSON contract.

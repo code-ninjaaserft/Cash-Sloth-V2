@@ -42,8 +42,8 @@ The native build outputs `CashSlothCore.dll` to `build/core/bin`, and the WPF pr
 - WPF calls into the C-API via P/Invoke; the C-API remains the only native boundary.
 
 ## Status
-Core DLL + WPF shell are wired up, with a minimal cart + payment MVP (add/remove/clear/total, given/change)
-and catalog JSON load in the native core.
+Core DLL + WPF POS MVP are wired up, with demo catalog load, cart line management, and payment (given/change)
+flow driven by the core JSON contract.
 
 ## Roadmap
 Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
@@ -53,9 +53,8 @@ Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [do
 - Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
 
 ## Next steps
-1. [ ] Add solution files and test projects.
+1. [ ] Add solution files for the .NET projects.
 2. [ ] Expand C-API data contracts for catalog/pricing.
-3. [ ] Add CI workflows for build and test.
 
 > Barcode scanning, database persistence, and preset management are later milestones and are **not** scaffolded here yet.
 
