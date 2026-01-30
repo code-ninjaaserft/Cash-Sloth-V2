@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Screen = System.Windows.Forms.Screen;
 using System.Windows.Media;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace CashSloth.App;
 
@@ -83,7 +84,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is Button button && button.Tag is string itemId && !string.IsNullOrWhiteSpace(itemId))
+        if (sender is WpfButton button && button.Tag is string itemId && !string.IsNullOrWhiteSpace(itemId))
         {
             if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, 1), $"add {itemId}"))
             {
@@ -138,7 +139,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is Button button && button.Tag is string centsText && long.TryParse(centsText, out var cents))
+        if (sender is WpfButton button && button.Tag is string centsText && long.TryParse(centsText, out var cents))
         {
             var nextGiven = _currentGivenCents + cents;
             if (!TryCoreCall(NativeMethods.cs_payment_set_given_cents(_cart, nextGiven), "set given"))
