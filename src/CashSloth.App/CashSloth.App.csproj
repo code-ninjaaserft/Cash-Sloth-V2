@@ -12,6 +12,10 @@
     <CashSlothCoreDll>$(MSBuildThisFileDirectory)..\..\build\core\bin\CashSlothCore.dll</CashSlothCoreDll>
   </PropertyGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
+
   <Target Name="CopyCashSlothCore" AfterTargets="Build">
     <ItemGroup>
       <CashSlothCoreDll Include="$(CashSlothCoreDll)" Condition="Exists('$(CashSlothCoreDll)')" />
