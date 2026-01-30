@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -11,6 +11,10 @@
   <PropertyGroup>
     <CashSlothCoreDll>$(MSBuildThisFileDirectory)..\..\build\core\bin\CashSlothCore.dll</CashSlothCoreDll>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
 
   <Target Name="CopyCashSlothCore" AfterTargets="Build">
     <ItemGroup>
