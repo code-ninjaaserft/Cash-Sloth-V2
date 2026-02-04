@@ -34,6 +34,7 @@ ctest --test-dir build/core -C Release --output-on-failure
 dotnet build src/CashSloth.App/CashSloth.App.csproj
 ```
 The native build outputs `CashSlothCore.dll` under `build/core/bin/<Configuration>`, and the WPF project copies it to its output folder on build.
+Release output exe is CSV2.exe in src/CashSloth.App/bin/Release/net8.0-windows/
 
 ### Visual Studio F5
 1. Open `CashSloth.sln`.

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <AssemblyName>CSV2</AssemblyName>
+    <RootNamespace>CashSloth.App</RootNamespace>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>false</UseWindowsForms>
