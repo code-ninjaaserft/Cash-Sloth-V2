@@ -9,18 +9,35 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <CashSlothCoreDll>$(MSBuildThisFileDirectory)..\..\build\core\bin\CashSlothCore.dll</CashSlothCoreDll>
+    <RepoRoot>$(MSBuildThisFileDirectory)..\..</RepoRoot>
+    <CashSlothCoreBinDir>$(RepoRoot)\build\core\bin\$(Configuration)</CashSlothCoreBinDir>
+    <CashSlothCoreDll>$(CashSlothCoreBinDir)\CashSlothCore.dll</CashSlothCoreDll>
+    <CashSlothCoreFallbackDll>$(RepoRoot)\build\core\bin\CashSlothCore.dll</CashSlothCoreFallbackDll>
   </PropertyGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
+  <Target Name="BuildNativeCore" BeforeTargets="Build"
+          Condition="'$(OS)' == 'Windows_NT' and ('$(BuildingInsideVisualStudio)' == 'true' or !Exists('$(CashSlothCoreDll)'))">
+    <Message Importance="high" Text="Building CashSlothCore via CMake (Configuration=$(Configuration))." />
+    <Exec Command="where cmake" IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="CMakeWhereExitCode" />
+    </Exec>
+    <Error Condition="'$(CMakeWhereExitCode)' != '0'"
+           Text="CMake was not found. Install CMake (https://cmake.org/download/) and ensure it is on PATH to build CashSlothCore.dll." />
+    <Exec Command="cmake -S &quot;$(RepoRoot)&quot; -B &quot;$(RepoRoot)\\build\\core&quot;" />
+    <Exec Command="cmake --build &quot;$(RepoRoot)\\build\\core&quot; --config $(Configuration)" />
+  </Target>
+
   <Target Name="CopyCashSlothCore" AfterTargets="Build">
     <ItemGroup>
       <CashSlothCoreDll Include="$(CashSlothCoreDll)" Condition="Exists('$(CashSlothCoreDll)')" />
+      <CashSlothCoreDll Include="$(CashSlothCoreFallbackDll)" Condition="Exists('$(CashSlothCoreFallbackDll)')" />
     </ItemGroup>
-    <Copy SourceFiles="@(CashSlothCoreDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="Exists('$(CashSlothCoreDll)')" />
-    <Message Importance="high" Text="CashSlothCore.dll not found at $(CashSlothCoreDll). Build the native core via CMake first." Condition="!Exists('$(CashSlothCoreDll)')" />
+    <Copy SourceFiles="@(CashSlothCoreDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(CashSlothCoreDll)' != ''" />
+    <Error Condition="!Exists('$(OutDir)CashSlothCore.dll')"
+           Text="CashSlothCore.dll was not found at $(CashSlothCoreDll) or $(CashSlothCoreFallbackDll). Build the native core via CMake first." />
   </Target>
 </Project>

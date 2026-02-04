@@ -33,7 +33,14 @@ cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure
 dotnet build src/CashSloth.App/CashSloth.App.csproj
 ```
-The native build outputs `CashSlothCore.dll` to `build/core/bin`, and the WPF project copies it to its output folder on build.
+The native build outputs `CashSlothCore.dll` under `build/core/bin/<Configuration>`, and the WPF project copies it to its output folder on build.
+
+### Visual Studio F5
+1. Open `CashSloth.sln`.
+2. Set `CashSloth.App` as the startup project.
+3. Press F5 (Debug or Release).
+
+Visual Studio will build the native core via CMake and copy `CashSlothCore.dll` into the app output folder. CMake must be installed and available on PATH.
 
 ## Design rules
 - Monetary values in the core are stored as **int64 cents**.
@@ -53,8 +60,7 @@ Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [do
 - Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
 
 ## Next steps
-1. [ ] Add solution files for the .NET projects.
-2. [ ] Expand C-API data contracts for catalog/pricing.
+1. [ ] Expand C-API data contracts for catalog/pricing.
 
 > Barcode scanning, database persistence, and preset management are later milestones and are **not** scaffolded here yet.
 
