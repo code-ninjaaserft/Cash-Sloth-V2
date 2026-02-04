@@ -37,8 +37,9 @@ The native build outputs `CashSlothCore.dll` under `build/core/bin/<Configuratio
 
 ### Visual Studio F5
 1. Open `CashSloth.sln`.
-2. Set `CashSloth.App` as the startup project.
-3. Press F5 (Debug or Release).
+2. Set `CashSloth.App` as the startup project (default).
+3. Select Debug or Release.
+4. Press F5.
 
 Visual Studio will build the native core via CMake and copy `CashSlothCore.dll` into the app output folder. CMake must be installed and available on PATH.
 
