@@ -8,6 +8,7 @@
     <UseWindowsForms>false</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <CMakeExePath>C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExePath>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -23,13 +24,10 @@
   <Target Name="BuildNativeCore" BeforeTargets="CopyCashSlothCore"
           Condition="'$(OS)' == 'Windows_NT'">
     <Message Importance="high" Text="Building CashSlothCore via CMake (Configuration=$(Configuration))." />
-    <Exec Command="where cmake" IgnoreExitCode="true">
-      <Output TaskParameter="ExitCode" PropertyName="CMakeWhereExitCode" />
-    </Exec>
-    <Error Condition="'$(CMakeWhereExitCode)' != '0'"
-           Text="CMake not found. Install CMake and ensure it is on PATH." />
-    <Exec Command="cmake -S . -B build/core" WorkingDirectory="$(RepoRoot)" />
-    <Exec Command="cmake --build build/core --config $(Configuration)" WorkingDirectory="$(RepoRoot)" />
+    <Error Condition="!Exists('$(CMakeExePath)')"
+           Text="CMake not found at $(CMakeExePath). Update CMakeExePath in CashSloth.App.csproj." />
+    <Exec Command="&quot;$(CMakeExePath)&quot; -S . -B build/core" WorkingDirectory="$(RepoRoot)" />
+    <Exec Command="&quot;$(CMakeExePath)&quot; --build build/core --config $(Configuration)" WorkingDirectory="$(RepoRoot)" />
   </Target>
 
   <Target Name="CopyCashSlothCore" AfterTargets="Build">

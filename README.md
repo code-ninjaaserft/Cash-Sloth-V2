@@ -42,7 +42,7 @@ Release output exe is CSV2.exe in src/CashSloth.App/bin/Release/net8.0-windows/
 3. Select Debug or Release.
 4. Press F5.
 
-Visual Studio will build the native core via CMake and copy `CashSlothCore.dll` into the app output folder. CMake must be installed and available on PATH.
+Visual Studio will build the native core via CMake and copy `CashSlothCore.dll` into the app output folder. The WPF project resolves CMake through `CMakeExePath` in `CashSloth.App.csproj` (defaulting to the Visual Studio bundled CMake location), so PATH changes are not required.
 
 ## Design rules
 - Monetary values in the core are stored as **int64 cents**.
