@@ -1,7 +1,9 @@
 {
 	"InstallScripts" : 
 	[
-		"C:/Users/elved/OneDrive/Dokumente/GitHub/Cash-Sloth-V2/out/build/x64-Debug/cmake_install.cmake"
+		"C:/Users/elved/OneDrive/Dokumente/GitHub/Cash-Sloth-V2/out/build/x64-Debug/cmake_install.cmake",
+		"C:/Users/elved/OneDrive/Dokumente/GitHub/Cash-Sloth-V2/out/build/x64-Debug/src/CashSloth.Core/cmake_install.cmake",
+		"C:/Users/elved/OneDrive/Dokumente/GitHub/Cash-Sloth-V2/out/build/x64-Debug/tests/CashSloth.Core.Tests/cmake_install.cmake"
 	],
 	"Parallel" : false
 }
