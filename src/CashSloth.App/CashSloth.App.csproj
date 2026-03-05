@@ -14,6 +14,16 @@
     <RepoRoot>$(MSBuildThisFileDirectory)..\..</RepoRoot>
     <CashSlothCoreBinDir>$(RepoRoot)\build\core\bin\$(Configuration)</CashSlothCoreBinDir>
     <CashSlothCoreDll>$(CashSlothCoreBinDir)\CashSlothCore.dll</CashSlothCoreDll>
+    <CMakeExe>cmake</CMakeExe>
+    <CMakeExe Condition="'$(VSInstallDir)' != '' and Exists('$(VSInstallDir)Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(VSInstallDir)Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles)\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles)\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles)\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles(x86))\Microsoft Visual Studio\2019\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles(x86))\Microsoft Visual Studio\2019\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles(x86))\Microsoft Visual Studio\2019\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles(x86))\Microsoft Visual Studio\2019\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles(x86))\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles(x86))\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
+    <CMakeExe Condition="'$(CMakeExe)' == 'cmake' and Exists('$(ProgramFiles(x86))\Microsoft Visual Studio\2019\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(ProgramFiles(x86))\Microsoft Visual Studio\2019\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,14 +32,14 @@
 
   <Target Name="BuildNativeCore" BeforeTargets="CopyCashSlothCore"
           Condition="'$(OS)' == 'Windows_NT'">
-    <Message Importance="high" Text="Building CashSlothCore via CMake (Configuration=$(Configuration))." />
-    <Exec Command="where cmake" IgnoreExitCode="true">
-      <Output TaskParameter="ExitCode" PropertyName="CMakeWhereExitCode" />
+    <Message Importance="high" Text="Building CashSlothCore via CMake (Configuration=$(Configuration), CMakeExe=$(CMakeExe))." />
+    <Exec Command="&quot;$(CMakeExe)&quot; --version" IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="CMakeVersionExitCode" />
     </Exec>
-    <Error Condition="'$(CMakeWhereExitCode)' != '0'"
-           Text="CMake not found. Install CMake and ensure it is on PATH." />
-    <Exec Command="cmake -S . -B build/core" WorkingDirectory="$(RepoRoot)" />
-    <Exec Command="cmake --build build/core --config $(Configuration)" WorkingDirectory="$(RepoRoot)" />
+    <Error Condition="'$(CMakeVersionExitCode)' != '0'"
+           Text="CMake not found. Install CMake or add the Visual Studio component 'C++ CMake tools for Windows'." />
+    <Exec Command="&quot;$(CMakeExe)&quot; -S . -B build/core" WorkingDirectory="$(RepoRoot)" />
+    <Exec Command="&quot;$(CMakeExe)&quot; --build build/core --config $(Configuration)" WorkingDirectory="$(RepoRoot)" />
   </Target>
 
   <Target Name="CopyCashSlothCore" AfterTargets="Build">
