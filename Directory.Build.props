@@ -1,3 +1,6 @@
 <Project>
-  <!-- Placeholder for shared .NET build settings. -->
+  <PropertyGroup>
+    <!-- Force nuget.org even when a user-level NuGet.Config clears package sources. -->
+    <RestoreSources>https://api.nuget.org/v3/index.json;$(RestoreSources)</RestoreSources>
+  </PropertyGroup>
 </Project>
