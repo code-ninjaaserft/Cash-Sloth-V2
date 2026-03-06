@@ -1,3 +1,6 @@
 # CashSloth.CoreApi
 
-Placeholder for the C-API boundary. For Issue #1 the exported header lives in `CashSloth.Core/include`.
+This folder is reserved for a dedicated C-API package boundary.
+
+The exported C-API header currently lives in `src/CashSloth.Core/include/cashsloth_core.h`.
+When the boundary is extracted, `src/CashSloth.CoreApi/include` becomes the canonical API surface.
