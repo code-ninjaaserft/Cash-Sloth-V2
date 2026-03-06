@@ -1,6 +1,39 @@
+# Build outputs and generated CMake state
 build/
 out/
 **/build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+Testing/
+*.ninja
+*.ninja_deps
+*.ninja_log
+
+# Visual Studio state
 .vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+
+# .NET build artifacts
+**/bin/
+**/obj/
+*.rsuser
+
+# Local dependency/tool caches
+.nuget/
+.dotnet-home/
+.appdata/
+.userprofile/
+
+# Local CMake user settings
 CMakeSettings.json
 CMakeUserPresets.json

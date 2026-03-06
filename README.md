@@ -63,6 +63,9 @@ The MVP stack is functional end-to-end:
 Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
 Current planning target: **QEN-GV in mid-March 2026** (`2026-03-14`).
 
+## Local cleanup
+- Remove build and IDE artifacts: `pwsh ./tools/clean_local_artifacts.ps1`
+- Also remove local package caches: `pwsh ./tools/clean_local_artifacts.ps1 -IncludePackageCaches`
 ## Contribution workflow
 - Use the issue templates for bugs, features, chores, and refactors.
 - Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
