@@ -6,8 +6,8 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using Screen = System.Windows.Forms.Screen;
 using System.Windows.Media;
+using Screen = System.Windows.Forms.Screen;
 using WpfButton = System.Windows.Controls.Button;
 
 namespace CashSloth.App;
@@ -19,12 +19,14 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<CartLineView> _lines = new();
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly List<CatalogItemEditor> _catalog = new();
+    private readonly List<string> _extraCategories = new();
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
     private CartSnapshot? _lastSnapshot;
     private CustomerDisplayWindow? _customerDisplayWindow;
     private string? _editingItemId;
+    private string _activeCategory = AllCategoriesLabel;
 
     public MainWindow()
     {
@@ -61,6 +63,7 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        CloseCatalogEditor();
         CloseCustomerDisplay();
 
         if (_cart != IntPtr.Zero)
@@ -93,6 +96,7 @@ public partial class MainWindow : Window
         if (IsEditModeEnabled())
         {
             LoadEditor(catalogItem);
+            ShowCatalogEditor();
             RenderProductButtons();
             return;
         }
@@ -110,8 +114,15 @@ public partial class MainWindow : Window
         RefreshFromCoreJson();
     }
 
-    private void OnCategoryFilterChanged(object sender, SelectionChangedEventArgs e)
+    private void OnCategoryButtonClick(object sender, RoutedEventArgs e)
     {
+        if (sender is not WpfButton button || button.Tag is not string category)
+        {
+            return;
+        }
+
+        _activeCategory = category;
+        RenderCategoryButtons();
         RenderProductButtons();
 
         if (!IsEditModeEnabled())
@@ -119,33 +130,89 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (FindCatalogItem(_editingItemId) is { } current && GetFilteredCatalog().Any(i => i.Id == current.Id))
+        var target = GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
+        if (target != null)
         {
-            return;
-        }
-
-        var fallback = GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
-        if (fallback != null)
-        {
-            LoadEditor(fallback);
-            RenderProductButtons();
+            LoadEditor(target);
         }
     }
 
     private void OnEditModeChanged(object sender, RoutedEventArgs e)
     {
-        EditPanel.Visibility = IsEditModeEnabled() ? Visibility.Visible : Visibility.Collapsed;
+        var editModeEnabled = IsEditModeEnabled();
+        OpenCatalogEditorButton.Visibility = editModeEnabled ? Visibility.Visible : Visibility.Collapsed;
 
-        if (IsEditModeEnabled())
+        if (!editModeEnabled)
         {
-            var target = FindCatalogItem(_editingItemId) ?? GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
-            if (target != null)
-            {
-                LoadEditor(target);
-            }
+            CloseCatalogEditor();
+            RenderCategoryButtons();
+            RenderProductButtons();
+            return;
         }
 
+        var target = FindCatalogItem(_editingItemId) ?? GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
+        if (target != null)
+        {
+            LoadEditor(target);
+        }
+
+        RenderCategoryButtons();
         RenderProductButtons();
+    }
+
+    private void OnOpenCatalogEditorClick(object sender, RoutedEventArgs e)
+    {
+        if (!IsEditModeEnabled())
+        {
+            StatusText.Text = "Enable edit mode first.";
+            return;
+        }
+
+        ShowCatalogEditor();
+    }
+
+    private void OnCloseCatalogEditorClick(object sender, RoutedEventArgs e)
+    {
+        CloseCatalogEditor();
+    }
+
+    private void OnEditorItemSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (EditorItemsListBox.SelectedItem is not ListBoxItem listItem || listItem.Tag is not string itemId)
+        {
+            return;
+        }
+
+        var item = FindCatalogItem(itemId);
+        if (item == null)
+        {
+            return;
+        }
+
+        LoadEditor(item);
+        RenderProductButtons();
+    }
+
+    private void OnAddCategoryClick(object sender, RoutedEventArgs e)
+    {
+        var newCategory = NewCategoryTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(newCategory))
+        {
+            StatusText.Text = "Category name is required.";
+            return;
+        }
+
+        if (!GetKnownCategories().Any(category => string.Equals(category, newCategory, StringComparison.OrdinalIgnoreCase)))
+        {
+            _extraCategories.Add(newCategory);
+        }
+
+        _activeCategory = newCategory;
+        EditCategoryCombo.Text = newCategory;
+        NewCategoryTextBox.Text = string.Empty;
+        RefreshCategoryControls();
+        RenderProductButtons();
+        StatusText.Text = $"Category '{newCategory}' added.";
     }
 
     private void OnSaveProductClick(object sender, RoutedEventArgs e)
@@ -165,6 +232,7 @@ public partial class MainWindow : Window
         item.Name = name;
         item.UnitCents = unitCents;
         item.Category = category;
+        _activeCategory = category;
 
         if (!ApplyCatalogUpdate("Product updated. Cart reset."))
         {
@@ -172,6 +240,7 @@ public partial class MainWindow : Window
         }
 
         LoadEditor(item);
+        ShowCatalogEditor();
         RenderProductButtons();
     }
 
@@ -182,17 +251,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        var previousCategory = _activeCategory;
         var item = new CatalogItemEditor(BuildUniqueProductId(name), name, unitCents, category);
         _catalog.Add(item);
+        _activeCategory = category;
 
         if (!ApplyCatalogUpdate("New product added. Cart reset."))
         {
             _catalog.Remove(item);
+            _activeCategory = previousCategory;
+            RefreshCategoryControls();
+            RenderProductButtons();
             return;
         }
 
-        CategoryFilterCombo.SelectedItem = category;
         LoadEditor(item);
+        ShowCatalogEditor();
         RenderProductButtons();
     }
 
@@ -226,6 +300,7 @@ public partial class MainWindow : Window
             LoadEditor(fallback);
         }
 
+        ShowCatalogEditor();
         RenderProductButtons();
     }
 
@@ -273,16 +348,41 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (sender is WpfButton button && button.Tag is string centsText && long.TryParse(centsText, out var cents))
+        if (sender is not WpfButton button || button.Tag is not string centsText || !long.TryParse(centsText, out var cents) || cents <= 0)
         {
-            var nextGiven = _currentGivenCents + cents;
-            if (!TryCoreCall(NativeMethods.cs_payment_set_given_cents(_cart, nextGiven), "set given"))
-            {
-                return;
-            }
-
-            RefreshFromCoreJson();
+            return;
         }
+
+        var nextGiven = _currentGivenCents + cents;
+        if (!TryCoreCall(NativeMethods.cs_payment_set_given_cents(_cart, nextGiven), "set given"))
+        {
+            return;
+        }
+
+        RefreshFromCoreJson();
+    }
+
+    private void OnAddCustomGivenClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureCart())
+        {
+            return;
+        }
+
+        if (!TryParsePriceInChf(CustomGivenTextBox.Text, out var cents) || cents <= 0)
+        {
+            StatusText.Text = "Custom amount must be a valid CHF value greater than 0.";
+            return;
+        }
+
+        var nextGiven = _currentGivenCents + cents;
+        if (!TryCoreCall(NativeMethods.cs_payment_set_given_cents(_cart, nextGiven), "set custom given"))
+        {
+            return;
+        }
+
+        CustomGivenTextBox.Text = string.Empty;
+        RefreshFromCoreJson();
     }
 
     private void OnResetGivenClick(object sender, RoutedEventArgs e)
@@ -297,6 +397,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        CustomGivenTextBox.Text = string.Empty;
         RefreshFromCoreJson();
     }
 
@@ -344,7 +445,18 @@ public partial class MainWindow : Window
 
             TotalValueText.Text = CurrencyFormatter.FormatCents(snapshot.TotalCents);
             GivenValueText.Text = CurrencyFormatter.FormatCents(snapshot.GivenCents);
-            ChangeValueText.Text = CurrencyFormatter.FormatCents(snapshot.ChangeCents);
+
+            var rawChange = snapshot.ChangeCents;
+            var changeCents = rawChange > 0 ? rawChange : Math.Max(snapshot.GivenCents - snapshot.TotalCents, 0);
+            var missingCents = Math.Max(snapshot.TotalCents - snapshot.GivenCents, 0);
+
+            ChangeValueText.Text = CurrencyFormatter.FormatCents(changeCents);
+            BalanceHintText.Text = missingCents > 0
+                ? $"Missing {CurrencyFormatter.FormatCents(missingCents)}"
+                : changeCents > 0
+                    ? $"Return {CurrencyFormatter.FormatCents(changeCents)}"
+                    : "Exact amount";
+
             _currentGivenCents = snapshot.GivenCents;
             _lastSnapshot = snapshot;
             _customerDisplayWindow?.Update(snapshot);
@@ -425,18 +537,66 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private void RenderCategoryButtons(List<string>? categories = null)
+    {
+        CategoryButtonsPanel.Children.Clear();
+
+        categories ??= GetKnownCategories();
+
+        var allCategories = new List<string> { AllCategoriesLabel };
+        allCategories.AddRange(categories);
+
+        foreach (var category in allCategories)
+        {
+            var button = new WpfButton
+            {
+                Tag = category,
+                Content = category,
+                Margin = new Thickness(4),
+                Width = 128,
+                Height = 48,
+                FontSize = 15,
+                Padding = new Thickness(8, 2, 8, 2),
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+
+            if (string.Equals(category, _activeCategory, StringComparison.OrdinalIgnoreCase))
+            {
+                button.Background = Brushes.LightSteelBlue;
+                button.BorderBrush = Brushes.SteelBlue;
+                button.FontWeight = FontWeights.SemiBold;
+            }
+
+            button.Click += OnCategoryButtonClick;
+            CategoryButtonsPanel.Children.Add(button);
+        }
+    }
+
     private void RenderProductButtons()
     {
         ProductsPanel.Children.Clear();
 
-        foreach (var item in GetFilteredCatalog())
+        var filteredCatalog = GetFilteredCatalog();
+        if (filteredCatalog.Count == 0)
+        {
+            ProductsPanel.Children.Add(new TextBlock
+            {
+                Text = "No items in this category.",
+                FontSize = 16,
+                Margin = new Thickness(8)
+            });
+            return;
+        }
+
+        foreach (var item in filteredCatalog)
         {
             var button = new WpfButton
             {
                 Tag = item.Id,
-                Margin = new Thickness(4),
-                Width = 108,
-                Height = 52,
+                Margin = new Thickness(6),
+                Width = 160,
+                Height = 96,
+                FontSize = 16,
                 Content = $"{item.Name}\n{CurrencyFormatter.FormatCents(item.UnitCents)}",
                 ToolTip = item.Category
             };
@@ -453,36 +613,93 @@ public partial class MainWindow : Window
 
     private List<CatalogItemEditor> GetFilteredCatalog()
     {
-        var selectedCategory = CategoryFilterCombo.SelectedItem as string;
-        if (string.IsNullOrWhiteSpace(selectedCategory) || string.Equals(selectedCategory, AllCategoriesLabel, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(_activeCategory) || string.Equals(_activeCategory, AllCategoriesLabel, StringComparison.OrdinalIgnoreCase))
         {
             return _catalog;
         }
 
         return _catalog
-            .Where(item => string.Equals(item.Category, selectedCategory, StringComparison.OrdinalIgnoreCase))
+            .Where(item => string.Equals(item.Category, _activeCategory, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private List<string> GetKnownCategories()
+    {
+        return _catalog
+            .Select(item => item.Category.Trim())
+            .Concat(_extraCategories.Select(category => category.Trim()))
+            .Where(category => !string.IsNullOrWhiteSpace(category))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category)
             .ToList();
     }
 
     private void RefreshCategoryControls()
     {
-        var previousFilter = CategoryFilterCombo.SelectedItem as string;
-        var categories = _catalog
-            .Select(item => item.Category.Trim())
-            .Where(category => !string.IsNullOrWhiteSpace(category))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(category => category)
-            .ToList();
+        var categories = GetKnownCategories();
 
-        var filterItems = new List<string> { AllCategoriesLabel };
-        filterItems.AddRange(categories);
-
-        CategoryFilterCombo.ItemsSource = filterItems;
-
-        var keepFilter = filterItems.Any(item => string.Equals(item, previousFilter, StringComparison.OrdinalIgnoreCase));
-        CategoryFilterCombo.SelectedItem = keepFilter ? filterItems.First(item => string.Equals(item, previousFilter, StringComparison.OrdinalIgnoreCase)) : AllCategoriesLabel;
+        if (!string.Equals(_activeCategory, AllCategoriesLabel, StringComparison.OrdinalIgnoreCase) &&
+            !categories.Any(category => string.Equals(category, _activeCategory, StringComparison.OrdinalIgnoreCase)))
+        {
+            _activeCategory = AllCategoriesLabel;
+        }
 
         EditCategoryCombo.ItemsSource = categories;
+        if (string.IsNullOrWhiteSpace(EditCategoryCombo.Text))
+        {
+            EditCategoryCombo.Text = categories.FirstOrDefault() ?? "General";
+        }
+
+        RenderCategoryButtons(categories);
+        RefreshEditorList();
+    }
+
+    private void RefreshEditorList()
+    {
+        EditorItemsListBox.Items.Clear();
+
+        foreach (var item in _catalog
+            .OrderBy(entry => entry.Category, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            EditorItemsListBox.Items.Add(new ListBoxItem
+            {
+                Tag = item.Id,
+                Content = $"{item.Name} ({item.Category}) - {CurrencyFormatter.FormatCents(item.UnitCents)}",
+                Padding = new Thickness(6)
+            });
+        }
+
+        SelectEditorItem(_editingItemId);
+    }
+
+    private void SelectEditorItem(string? itemId)
+    {
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            return;
+        }
+
+        foreach (var entry in EditorItemsListBox.Items)
+        {
+            if (entry is not ListBoxItem item || item.Tag is not string currentId)
+            {
+                continue;
+            }
+
+            if (!string.Equals(currentId, itemId, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!ReferenceEquals(EditorItemsListBox.SelectedItem, item))
+            {
+                EditorItemsListBox.SelectedItem = item;
+            }
+
+            item.BringIntoView();
+            break;
+        }
     }
 
     private void LoadEditor(CatalogItemEditor item)
@@ -492,6 +709,29 @@ public partial class MainWindow : Window
         EditNameTextBox.Text = item.Name;
         EditPriceTextBox.Text = (item.UnitCents / 100m).ToString("0.00", CultureInfo.InvariantCulture);
         EditCategoryCombo.Text = item.Category;
+        SelectEditorItem(item.Id);
+    }
+
+    private void ShowCatalogEditor()
+    {
+        if (!IsEditModeEnabled())
+        {
+            return;
+        }
+
+        var target = FindCatalogItem(_editingItemId) ?? GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
+        if (target != null)
+        {
+            LoadEditor(target);
+        }
+
+        RefreshEditorList();
+        CatalogEditorOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CloseCatalogEditor()
+    {
+        CatalogEditorOverlay.Visibility = Visibility.Collapsed;
     }
 
     private CatalogItemEditor? FindCatalogItem(string? itemId)
@@ -573,12 +813,16 @@ public partial class MainWindow : Window
     private void InitializeCatalogDefaults()
     {
         _catalog.Clear();
+        _extraCategories.Clear();
+
         _catalog.Add(new CatalogItemEditor("COFFEE", "Coffee", 500, "Hot Drinks"));
         _catalog.Add(new CatalogItemEditor("TEA", "Tea", 400, "Hot Drinks"));
         _catalog.Add(new CatalogItemEditor("WATER", "Water", 200, "Soft Drinks"));
         _catalog.Add(new CatalogItemEditor("COLA", "Cola", 350, "Soft Drinks"));
         _catalog.Add(new CatalogItemEditor("CHIPS", "Chips", 250, "Snacks"));
         _catalog.Add(new CatalogItemEditor("CAKE", "Cake", 450, "Snacks"));
+
+        _activeCategory = AllCategoriesLabel;
     }
 
     private bool IsEditModeEnabled()
@@ -648,3 +892,4 @@ public partial class MainWindow : Window
         window.WindowState = WindowState.Maximized;
     }
 }
+
