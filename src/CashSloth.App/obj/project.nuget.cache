@@ -1,53 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "PmvOHPdlNR0=",
-  "success": false,
+  "dgSpecHash": "aG0M2scKuIs=",
+  "success": true,
   "projectFilePath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-  "expectedPackageFiles": [],
-  "logs": [
-    {
-      "code": "NU1101",
-      "level": "Error",
-      "message": "Das Paket \"Microsoft.NETCore.App.Ref\" wurde nicht gefunden. Es sind keine Pakete mit dieser ID in folgenden Quellen vorhanden: Microsoft Visual Studio Offline Packages",
-      "projectPath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "filePath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "libraryId": "Microsoft.NETCore.App.Ref",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    },
-    {
-      "code": "NU1101",
-      "level": "Error",
-      "message": "Das Paket \"Microsoft.WindowsDesktop.App.Ref\" wurde nicht gefunden. Es sind keine Pakete mit dieser ID in folgenden Quellen vorhanden: Microsoft Visual Studio Offline Packages",
-      "projectPath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "filePath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "libraryId": "Microsoft.WindowsDesktop.App.Ref",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    },
-    {
-      "code": "NU1101",
-      "level": "Error",
-      "message": "Das Paket \"Microsoft.AspNetCore.App.Ref\" wurde nicht gefunden. Es sind keine Pakete mit dieser ID in folgenden Quellen vorhanden: Microsoft Visual Studio Offline Packages",
-      "projectPath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "filePath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "libraryId": "Microsoft.AspNetCore.App.Ref",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    },
-    {
-      "code": "NU1101",
-      "level": "Error",
-      "message": "Das Paket \"Microsoft.NETCore.App.Host.win-x64\" wurde nicht gefunden. Es sind keine Pakete mit dieser ID in folgenden Quellen vorhanden: Microsoft Visual Studio Offline Packages",
-      "projectPath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "filePath": "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\src\\CashSloth.App\\CashSloth.App.csproj",
-      "libraryId": "Microsoft.NETCore.App.Host.win-x64",
-      "targetGraphs": [
-        "net8.0-windows7.0"
-      ]
-    }
-  ]
+  "expectedPackageFiles": [
+    "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.24\\microsoft.windowsdesktop.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.24\\microsoft.netcore.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.24\\microsoft.aspnetcore.app.ref.8.0.24.nupkg.sha512",
+    "C:\\Users\\elved\\OneDrive\\Dokumente\\GitHub\\Cash-Sloth-V2\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.24\\microsoft.netcore.app.host.win-x64.8.0.24.nupkg.sha512"
+  ],
+  "logs": []
 }

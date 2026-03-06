@@ -7,9 +7,11 @@
   },
   "ExpandedNodes": [
     "",
+    "\\src",
+    "\\src\\CashSloth.App",
     "\\tools",
     "\\tools\\github"
   ],
-  "SelectedNode": "\\tools\\github\\apply_github_setup.ps1",
+  "SelectedNode": "\\src",
   "PreviewInSolutionExplorer": false
 }
