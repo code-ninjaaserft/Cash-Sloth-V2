@@ -26,3 +26,27 @@ internal sealed record CartLine(
     [property: JsonPropertyName("line_total_cents")] long LineTotalCents);
 
 internal sealed record CartLineView(string Name, int Quantity, string LineTotalDisplay);
+
+internal sealed class CatalogItemEditor
+{
+    internal CatalogItemEditor(string id, string name, long unitCents, string category)
+    {
+        Id = id;
+        Name = name;
+        UnitCents = unitCents;
+        Category = category;
+    }
+
+    internal string Id { get; set; }
+    internal string Name { get; set; }
+    internal long UnitCents { get; set; }
+    internal string Category { get; set; }
+}
+
+internal sealed record CatalogCorePayload(
+    [property: JsonPropertyName("items")] CatalogCoreItem[] Items);
+
+internal sealed record CatalogCoreItem(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("unit_cents")] long UnitCents);

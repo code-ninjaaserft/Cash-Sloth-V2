@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using Screen = System.Windows.Forms.Screen;
@@ -12,29 +14,26 @@ namespace CashSloth.App;
 
 public partial class MainWindow : Window
 {
-    private const string DemoCatalogJson = """
-        {"items":[
-          {"id":"COFFEE","name":"Coffee","unit_cents":500},
-          {"id":"TEA","name":"Tea","unit_cents":400},
-          {"id":"WATER","name":"Water","unit_cents":200},
-          {"id":"COLA","name":"Cola","unit_cents":350},
-          {"id":"CHIPS","name":"Chips","unit_cents":250},
-          {"id":"CAKE","name":"Cake","unit_cents":450}
-        ]}
-        """;
+    private const string AllCategoriesLabel = "All";
 
     private readonly ObservableCollection<CartLineView> _lines = new();
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private readonly List<CatalogItemEditor> _catalog = new();
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
     private CartSnapshot? _lastSnapshot;
     private CustomerDisplayWindow? _customerDisplayWindow;
+    private string? _editingItemId;
 
     public MainWindow()
     {
         InitializeComponent();
         CartLinesGrid.ItemsSource = _lines;
+
+        InitializeCatalogDefaults();
+        RefreshCategoryControls();
+        RenderProductButtons();
     }
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
@@ -47,7 +46,7 @@ public partial class MainWindow : Window
 
         _coreInitialized = true;
 
-        if (!TryCoreCall(NativeMethods.cs_catalog_load_json(DemoCatalogJson), "load demo catalog"))
+        if (!TryCoreCall(LoadCatalogIntoCore(), "load catalog"))
         {
             return;
         }
@@ -77,22 +76,157 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnAddItemClick(object sender, RoutedEventArgs e)
+    private void OnProductButtonClick(object sender, RoutedEventArgs e)
     {
+        if (sender is not WpfButton button || button.Tag is not string itemId || string.IsNullOrWhiteSpace(itemId))
+        {
+            return;
+        }
+
+        var catalogItem = FindCatalogItem(itemId);
+        if (catalogItem == null)
+        {
+            StatusText.Text = "Selected product does not exist anymore.";
+            return;
+        }
+
+        if (IsEditModeEnabled())
+        {
+            LoadEditor(catalogItem);
+            RenderProductButtons();
+            return;
+        }
+
         if (!EnsureCart())
         {
             return;
         }
 
-        if (sender is WpfButton button && button.Tag is string itemId && !string.IsNullOrWhiteSpace(itemId))
+        if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, 1), $"add {itemId}"))
         {
-            if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, 1), $"add {itemId}"))
-            {
-                return;
-            }
-
-            RefreshFromCoreJson();
+            return;
         }
+
+        RefreshFromCoreJson();
+    }
+
+    private void OnCategoryFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        RenderProductButtons();
+
+        if (!IsEditModeEnabled())
+        {
+            return;
+        }
+
+        if (FindCatalogItem(_editingItemId) is { } current && GetFilteredCatalog().Any(i => i.Id == current.Id))
+        {
+            return;
+        }
+
+        var fallback = GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
+        if (fallback != null)
+        {
+            LoadEditor(fallback);
+            RenderProductButtons();
+        }
+    }
+
+    private void OnEditModeChanged(object sender, RoutedEventArgs e)
+    {
+        EditPanel.Visibility = IsEditModeEnabled() ? Visibility.Visible : Visibility.Collapsed;
+
+        if (IsEditModeEnabled())
+        {
+            var target = FindCatalogItem(_editingItemId) ?? GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
+            if (target != null)
+            {
+                LoadEditor(target);
+            }
+        }
+
+        RenderProductButtons();
+    }
+
+    private void OnSaveProductClick(object sender, RoutedEventArgs e)
+    {
+        var item = FindCatalogItem(_editingItemId);
+        if (item == null)
+        {
+            StatusText.Text = "Select a product to edit.";
+            return;
+        }
+
+        if (!TryReadEditorValues(out var name, out var unitCents, out var category))
+        {
+            return;
+        }
+
+        item.Name = name;
+        item.UnitCents = unitCents;
+        item.Category = category;
+
+        if (!ApplyCatalogUpdate("Product updated. Cart reset."))
+        {
+            return;
+        }
+
+        LoadEditor(item);
+        RenderProductButtons();
+    }
+
+    private void OnAddNewProductClick(object sender, RoutedEventArgs e)
+    {
+        if (!TryReadEditorValues(out var name, out var unitCents, out var category))
+        {
+            return;
+        }
+
+        var item = new CatalogItemEditor(BuildUniqueProductId(name), name, unitCents, category);
+        _catalog.Add(item);
+
+        if (!ApplyCatalogUpdate("New product added. Cart reset."))
+        {
+            _catalog.Remove(item);
+            return;
+        }
+
+        CategoryFilterCombo.SelectedItem = category;
+        LoadEditor(item);
+        RenderProductButtons();
+    }
+
+    private void OnDeleteProductClick(object sender, RoutedEventArgs e)
+    {
+        var item = FindCatalogItem(_editingItemId);
+        if (item == null)
+        {
+            StatusText.Text = "Select a product to delete.";
+            return;
+        }
+
+        if (_catalog.Count <= 1)
+        {
+            StatusText.Text = "At least one product must remain.";
+            return;
+        }
+
+        var removedIndex = _catalog.IndexOf(item);
+        _catalog.RemoveAt(removedIndex);
+
+        if (!ApplyCatalogUpdate("Product deleted. Cart reset."))
+        {
+            _catalog.Insert(removedIndex, item);
+            return;
+        }
+
+        var fallback = GetFilteredCatalog().FirstOrDefault() ?? _catalog.FirstOrDefault();
+        if (fallback != null)
+        {
+            LoadEditor(fallback);
+        }
+
+        RenderProductButtons();
     }
 
     private void OnRemoveSelectedClick(object sender, RoutedEventArgs e)
@@ -251,6 +385,205 @@ public partial class MainWindow : Window
         var message = Marshal.PtrToStringUTF8(errorPtr) ?? "Unknown error.";
         StatusText.Text = $"Failed to {action} ({result}): {message}";
         return false;
+    }
+
+    private int LoadCatalogIntoCore()
+    {
+        var payload = new CatalogCorePayload(_catalog
+            .Select(item => new CatalogCoreItem(item.Id, item.Name, item.UnitCents))
+            .ToArray());
+
+        var json = JsonSerializer.Serialize(payload, _jsonOptions);
+        return NativeMethods.cs_catalog_load_json(json);
+    }
+
+    private bool ApplyCatalogUpdate(string successStatus)
+    {
+        if (!TryCoreCall(LoadCatalogIntoCore(), "load catalog"))
+        {
+            return false;
+        }
+
+        if (EnsureCart())
+        {
+            if (!TryCoreCall(NativeMethods.cs_cart_clear(_cart), "clear cart"))
+            {
+                return false;
+            }
+
+            if (!TryCoreCall(NativeMethods.cs_payment_set_given_cents(_cart, 0), "reset given"))
+            {
+                return false;
+            }
+
+            RefreshFromCoreJson();
+        }
+
+        RefreshCategoryControls();
+        RenderProductButtons();
+        StatusText.Text = successStatus;
+        return true;
+    }
+
+    private void RenderProductButtons()
+    {
+        ProductsPanel.Children.Clear();
+
+        foreach (var item in GetFilteredCatalog())
+        {
+            var button = new WpfButton
+            {
+                Tag = item.Id,
+                Margin = new Thickness(4),
+                Width = 108,
+                Height = 52,
+                Content = $"{item.Name}\n{CurrencyFormatter.FormatCents(item.UnitCents)}",
+                ToolTip = item.Category
+            };
+
+            if (IsEditModeEnabled() && string.Equals(item.Id, _editingItemId, StringComparison.Ordinal))
+            {
+                button.Background = Brushes.LightGoldenrodYellow;
+            }
+
+            button.Click += OnProductButtonClick;
+            ProductsPanel.Children.Add(button);
+        }
+    }
+
+    private List<CatalogItemEditor> GetFilteredCatalog()
+    {
+        var selectedCategory = CategoryFilterCombo.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(selectedCategory) || string.Equals(selectedCategory, AllCategoriesLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            return _catalog;
+        }
+
+        return _catalog
+            .Where(item => string.Equals(item.Category, selectedCategory, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void RefreshCategoryControls()
+    {
+        var previousFilter = CategoryFilterCombo.SelectedItem as string;
+        var categories = _catalog
+            .Select(item => item.Category.Trim())
+            .Where(category => !string.IsNullOrWhiteSpace(category))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category)
+            .ToList();
+
+        var filterItems = new List<string> { AllCategoriesLabel };
+        filterItems.AddRange(categories);
+
+        CategoryFilterCombo.ItemsSource = filterItems;
+
+        var keepFilter = filterItems.Any(item => string.Equals(item, previousFilter, StringComparison.OrdinalIgnoreCase));
+        CategoryFilterCombo.SelectedItem = keepFilter ? filterItems.First(item => string.Equals(item, previousFilter, StringComparison.OrdinalIgnoreCase)) : AllCategoriesLabel;
+
+        EditCategoryCombo.ItemsSource = categories;
+    }
+
+    private void LoadEditor(CatalogItemEditor item)
+    {
+        _editingItemId = item.Id;
+        EditIdText.Text = item.Id;
+        EditNameTextBox.Text = item.Name;
+        EditPriceTextBox.Text = (item.UnitCents / 100m).ToString("0.00", CultureInfo.InvariantCulture);
+        EditCategoryCombo.Text = item.Category;
+    }
+
+    private CatalogItemEditor? FindCatalogItem(string? itemId)
+    {
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            return null;
+        }
+
+        return _catalog.FirstOrDefault(item => string.Equals(item.Id, itemId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool TryReadEditorValues(out string name, out long unitCents, out string category)
+    {
+        name = EditNameTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            unitCents = 0;
+            category = string.Empty;
+            StatusText.Text = "Name is required.";
+            return false;
+        }
+
+        if (!TryParsePriceInChf(EditPriceTextBox.Text, out unitCents))
+        {
+            category = string.Empty;
+            StatusText.Text = "Price must be a valid CHF amount (e.g. 4.50).";
+            return false;
+        }
+
+        category = EditCategoryCombo.Text.Trim();
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            category = "General";
+        }
+
+        return true;
+    }
+
+    private static bool TryParsePriceInChf(string input, out long cents)
+    {
+        cents = 0;
+
+        var cleaned = input.Replace("CHF", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+        if (decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.CurrentCulture, out var value) ||
+            decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+        {
+            if (value < 0)
+            {
+                return false;
+            }
+
+            cents = (long)decimal.Round(value * 100m, 0, MidpointRounding.AwayFromZero);
+            return true;
+        }
+
+        return false;
+    }
+
+    private string BuildUniqueProductId(string name)
+    {
+        var stem = Regex.Replace(name.ToUpperInvariant(), "[^A-Z0-9]+", "_").Trim('_');
+        if (string.IsNullOrWhiteSpace(stem))
+        {
+            stem = "ITEM";
+        }
+
+        var candidate = stem;
+        var index = 2;
+        while (_catalog.Any(item => string.Equals(item.Id, candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"{stem}_{index}";
+            index++;
+        }
+
+        return candidate;
+    }
+
+    private void InitializeCatalogDefaults()
+    {
+        _catalog.Clear();
+        _catalog.Add(new CatalogItemEditor("COFFEE", "Coffee", 500, "Hot Drinks"));
+        _catalog.Add(new CatalogItemEditor("TEA", "Tea", 400, "Hot Drinks"));
+        _catalog.Add(new CatalogItemEditor("WATER", "Water", 200, "Soft Drinks"));
+        _catalog.Add(new CatalogItemEditor("COLA", "Cola", 350, "Soft Drinks"));
+        _catalog.Add(new CatalogItemEditor("CHIPS", "Chips", 250, "Snacks"));
+        _catalog.Add(new CatalogItemEditor("CAKE", "Cake", 450, "Snacks"));
+    }
+
+    private bool IsEditModeEnabled()
+    {
+        return EditModeCheckBox.IsChecked == true;
     }
 
     private void OnOpenCustomerDisplayClick(object sender, RoutedEventArgs e)
