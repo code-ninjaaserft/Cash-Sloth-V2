@@ -9,3 +9,5 @@ Current MVP capabilities:
 - track tendered amount (preset + custom CHF) and change
 - open/close customer display window (second screen)
 - edit mode for adding/updating/deleting products and categories
+- separate edit popups for adding items and managing categories (+ / X actions)
+- persist assortment presets as JSON (`%LOCALAPPDATA%\\CashSloth\\assortment.presets.json`)

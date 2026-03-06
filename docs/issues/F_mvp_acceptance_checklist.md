@@ -10,6 +10,7 @@ Create a minimal acceptance checklist for the MVP that matches current repo capa
 - The checklist references existing tests and build commands.
 
 ## Task checklist
-- [ ] List must-have flows (catalog load, cart add/remove/clear, payment tender/change, JSON output).
-- [ ] Document minimum manual validation on Windows.
-- [ ] Identify the automated tests that must pass.
+- [x] List must-have flows (catalog load, cart add/remove/clear, payment tender/change, JSON output).
+- [x] Document minimum manual validation on Windows.
+- [x] Identify the automated tests that must pass.
+

@@ -38,6 +38,22 @@
                   FontSize="15"
                   Visibility="Collapsed"
                   Click="OnOpenCatalogEditorClick" />
+          <Button x:Name="OpenAddItemButton"
+                  Content="Add Item"
+                  Width="120"
+                  Height="42"
+                  FontSize="15"
+                  Margin="8,0,0,0"
+                  Visibility="Collapsed"
+                  Click="OnOpenAddItemOverlayClick" />
+          <Button x:Name="OpenCategoryManagerButton"
+                  Content="Categories"
+                  Width="120"
+                  Height="42"
+                  FontSize="15"
+                  Margin="8,0,0,0"
+                  Visibility="Collapsed"
+                  Click="OnOpenCategoryManagerClick" />
         </StackPanel>
 
         <Grid Grid.Row="1">
@@ -184,6 +200,7 @@
             Grid.Column="0"
             Grid.RowSpan="4"
             Grid.ColumnSpan="2"
+            Panel.ZIndex="10"
             Background="#77000000"
             Visibility="Collapsed">
       <Border Width="640"
@@ -198,7 +215,6 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
           <Grid>
             <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
@@ -261,24 +277,174 @@
                         Margin="0,8,0,0"
                         IsEditable="True" />
 
-              <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,10,0,0">
-                <TextBlock Text="New category:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <TextBox x:Name="NewCategoryTextBox" Width="220" Height="36" FontSize="16" />
-                <Button Content="Add Category" Width="130" Height="36" Margin="8,0,0,0" Click="OnAddCategoryClick" />
-              </StackPanel>
+              <WrapPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,14,0,0">
+                <Button Content="Save" Width="110" Height="40" FontSize="15" Click="OnSaveProductClick" />
+                <Button Content="Delete Item" Width="130" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnDeleteProductClick" />
+                <Button Content="Close" Width="110" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnCloseCatalogEditorClick" />
+              </WrapPanel>
             </Grid>
-
-            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,14,0,0">
-              <Button Content="Save" Width="110" Height="40" FontSize="15" Click="OnSaveProductClick" />
-              <Button Content="Add New Item" Width="130" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnAddNewProductClick" />
-              <Button Content="Delete Item" Width="130" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnDeleteProductClick" />
-              <Button Content="Close" Width="110" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnCloseCatalogEditorClick" />
-            </StackPanel>
           </Grid>
         </ScrollViewer>
       </Border>
     </Border>
+
+    <Border x:Name="AddItemOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="4"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="30"
+            Background="#77000000"
+            Visibility="Collapsed">
+      <Border Width="520"
+              Padding="14"
+              Background="White"
+              BorderBrush="#FF6A6A6A"
+              BorderThickness="1"
+              CornerRadius="8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+
+          <DockPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,8">
+            <TextBlock Text="Add Item" FontSize="22" FontWeight="SemiBold" DockPanel.Dock="Left" />
+            <Button Content="X"
+                    Width="42"
+                    Height="42"
+                    FontSize="16"
+                    HorizontalAlignment="Right"
+                    DockPanel.Dock="Right"
+                    Click="OnCloseAddItemOverlayClick" />
+          </DockPanel>
+
+          <TextBlock Grid.Row="1" Grid.Column="0" Text="Name:" VerticalAlignment="Center" Margin="0,8,0,0" />
+          <TextBox Grid.Row="1" Grid.Column="1" x:Name="AddItemNameTextBox" Height="36" FontSize="16" Margin="0,8,0,0" />
+
+          <TextBlock Grid.Row="2" Grid.Column="0" Text="Price CHF:" VerticalAlignment="Center" Margin="0,8,0,0" />
+          <TextBox Grid.Row="2" Grid.Column="1" x:Name="AddItemPriceTextBox" Height="36" FontSize="16" Margin="0,8,0,0" />
+
+          <TextBlock Grid.Row="3" Grid.Column="0" Text="Category:" VerticalAlignment="Center" Margin="0,8,0,0" />
+          <ComboBox Grid.Row="3"
+                    Grid.Column="1"
+                    x:Name="AddItemCategoryCombo"
+                    Height="36"
+                    FontSize="16"
+                    Margin="0,8,0,0"
+                    IsEditable="True" />
+
+          <WrapPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,14,0,0">
+            <Button Content="Create" Width="120" Height="40" FontSize="15" Click="OnCreateNewItemClick" />
+            <Button Content="Cancel" Width="120" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnCloseAddItemOverlayClick" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <Border x:Name="CategoryManagerOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="4"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="20"
+            Background="#77000000"
+            Visibility="Collapsed">
+      <Border Width="620"
+              MaxHeight="620"
+              Padding="14"
+              Background="White"
+              BorderBrush="#FF6A6A6A"
+              BorderThickness="1"
+              CornerRadius="8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Edit Mode On - Categories" FontSize="22" FontWeight="SemiBold" DockPanel.Dock="Left" />
+            <Button Content="X"
+                    Width="42"
+                    Height="42"
+                    FontSize="16"
+                    HorizontalAlignment="Right"
+                    DockPanel.Dock="Right"
+                    Click="OnCloseCategoryManagerClick" />
+          </DockPanel>
+
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+            <StackPanel x:Name="CategoryManagerRowsPanel" />
+          </ScrollViewer>
+
+          <WrapPanel Grid.Row="2" Margin="0,12,0,0">
+            <Button Content="Add Category..." Width="150" Height="40" FontSize="15" Click="OnOpenAddCategoryOverlayClick" />
+            <Button Content="Close" Width="120" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnCloseCategoryManagerClick" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <Border x:Name="AddCategoryOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="4"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="40"
+            Background="#77000000"
+            Visibility="Collapsed">
+      <Border Width="460"
+              Padding="14"
+              Background="White"
+              BorderBrush="#FF6A6A6A"
+              BorderThickness="1"
+              CornerRadius="8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Add Category" FontSize="22" FontWeight="SemiBold" DockPanel.Dock="Left" />
+            <Button Content="X"
+                    Width="42"
+                    Height="42"
+                    FontSize="16"
+                    HorizontalAlignment="Right"
+                    DockPanel.Dock="Right"
+                    Click="OnCloseAddCategoryOverlayClick" />
+          </DockPanel>
+
+          <TextBox Grid.Row="1"
+                   x:Name="AddCategoryNameTextBox"
+                   Height="38"
+                   FontSize="16"
+                   VerticalContentAlignment="Center"
+                   ToolTip="Category name" />
+
+          <WrapPanel Grid.Row="2" Margin="0,12,0,0">
+            <Button Content="Create" Width="120" Height="40" FontSize="15" Click="OnCreateCategoryClick" />
+            <Button Content="Cancel" Width="120" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnCloseAddCategoryOverlayClick" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+    </Border>
   </Grid>
 </Window>
-
-

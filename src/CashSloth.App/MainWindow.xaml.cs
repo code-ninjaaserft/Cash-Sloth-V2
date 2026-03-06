@@ -20,12 +20,14 @@ public partial class MainWindow : Window
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly List<CatalogItemEditor> _catalog = new();
     private readonly List<string> _extraCategories = new();
+    private readonly AssortmentPresetStore _assortmentStore = new();
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
     private CartSnapshot? _lastSnapshot;
     private CustomerDisplayWindow? _customerDisplayWindow;
     private string? _editingItemId;
+    private string? _catalogLoadWarning;
     private string _activeCategory = AllCategoriesLabel;
 
     public MainWindow()
@@ -33,7 +35,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         CartLinesGrid.ItemsSource = _lines;
 
-        InitializeCatalogDefaults();
+        InitializeCatalogFromStore();
         RefreshCategoryControls();
         RenderProductButtons();
     }
@@ -59,11 +61,19 @@ public partial class MainWindow : Window
         }
 
         RefreshFromCoreJson();
+
+        if (!string.IsNullOrWhiteSpace(_catalogLoadWarning))
+        {
+            StatusText.Text = _catalogLoadWarning;
+        }
     }
 
     private void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         CloseCatalogEditor();
+        CloseAddItemOverlay();
+        CloseCategoryManager();
+        CloseAddCategoryOverlay();
         CloseCustomerDisplay();
 
         if (_cart != IntPtr.Zero)
@@ -140,11 +150,18 @@ public partial class MainWindow : Window
     private void OnEditModeChanged(object sender, RoutedEventArgs e)
     {
         var editModeEnabled = IsEditModeEnabled();
-        OpenCatalogEditorButton.Visibility = editModeEnabled ? Visibility.Visible : Visibility.Collapsed;
+        var overlayVisibility = editModeEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+        OpenCatalogEditorButton.Visibility = overlayVisibility;
+        OpenAddItemButton.Visibility = overlayVisibility;
+        OpenCategoryManagerButton.Visibility = overlayVisibility;
 
         if (!editModeEnabled)
         {
             CloseCatalogEditor();
+            CloseAddItemOverlay();
+            CloseCategoryManager();
+            CloseAddCategoryOverlay();
             RenderCategoryButtons();
             RenderProductButtons();
             return;
@@ -193,9 +210,139 @@ public partial class MainWindow : Window
         RenderProductButtons();
     }
 
-    private void OnAddCategoryClick(object sender, RoutedEventArgs e)
+    private void OnOpenAddItemOverlayClick(object sender, RoutedEventArgs e)
     {
-        var newCategory = NewCategoryTextBox.Text.Trim();
+        ShowAddItemOverlay(_activeCategory, false);
+    }
+
+    private void OnCloseAddItemOverlayClick(object sender, RoutedEventArgs e)
+    {
+        CloseAddItemOverlay();
+    }
+
+    private void OnCreateNewItemClick(object sender, RoutedEventArgs e)
+    {
+        if (!TryReadNewItemValues(out var name, out var unitCents, out var category))
+        {
+            return;
+        }
+
+        var previousCategory = _activeCategory;
+        var item = new CatalogItemEditor(BuildUniqueProductId(name), name, unitCents, category);
+        _catalog.Add(item);
+        _activeCategory = category;
+
+        if (!ApplyCatalogUpdate("New product added. Cart reset."))
+        {
+            _catalog.Remove(item);
+            _activeCategory = previousCategory;
+            RefreshCategoryControls();
+            RenderProductButtons();
+            return;
+        }
+
+        LoadEditor(item);
+        CloseAddItemOverlay();
+
+        if (CatalogEditorOverlay.Visibility == Visibility.Visible)
+        {
+            ShowCatalogEditor();
+        }
+
+        if (CategoryManagerOverlay.Visibility == Visibility.Visible)
+        {
+            RefreshCategoryManagerRows();
+        }
+    }
+
+    private void ShowAddItemOverlay(string? preferredCategory = null, bool lockCategory = false)
+    {
+        if (!IsEditModeEnabled())
+        {
+            StatusText.Text = "Enable edit mode first.";
+            return;
+        }
+
+        var categories = GetKnownCategories();
+        var selectedCategory = string.IsNullOrWhiteSpace(preferredCategory)
+            ? categories.FirstOrDefault() ?? "General"
+            : categories.FirstOrDefault(category =>
+                  string.Equals(category, preferredCategory, StringComparison.OrdinalIgnoreCase))
+              ?? preferredCategory.Trim();
+
+        AddItemCategoryCombo.ItemsSource = categories;
+        AddItemCategoryCombo.SelectedItem = categories.FirstOrDefault(category =>
+            string.Equals(category, selectedCategory, StringComparison.OrdinalIgnoreCase));
+        AddItemCategoryCombo.Text = selectedCategory;
+        AddItemCategoryCombo.IsEnabled = !lockCategory;
+
+        AddItemNameTextBox.Text = string.Empty;
+        AddItemPriceTextBox.Text = string.Empty;
+
+        AddItemOverlay.Visibility = Visibility.Visible;
+        AddItemNameTextBox.Focus();
+        AddItemNameTextBox.SelectAll();
+    }
+
+    private void CloseAddItemOverlay()
+    {
+        AddItemCategoryCombo.IsEnabled = true;
+        AddItemOverlay.Visibility = Visibility.Collapsed;
+    }
+    private void OnOpenCategoryManagerClick(object sender, RoutedEventArgs e)
+    {
+        ShowCategoryManager();
+    }
+
+    private void OnCloseCategoryManagerClick(object sender, RoutedEventArgs e)
+    {
+        CloseCategoryManager();
+    }
+
+    private void ShowCategoryManager()
+    {
+        if (!IsEditModeEnabled())
+        {
+            StatusText.Text = "Enable edit mode first.";
+            return;
+        }
+
+        RefreshCategoryManagerRows();
+        CategoryManagerOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CloseCategoryManager()
+    {
+        CategoryManagerOverlay.Visibility = Visibility.Collapsed;
+        CloseAddCategoryOverlay();
+    }
+
+    private void OnOpenAddCategoryOverlayClick(object sender, RoutedEventArgs e)
+    {
+        if (!IsEditModeEnabled())
+        {
+            StatusText.Text = "Enable edit mode first.";
+            return;
+        }
+
+        AddCategoryNameTextBox.Text = string.Empty;
+        AddCategoryOverlay.Visibility = Visibility.Visible;
+        AddCategoryNameTextBox.Focus();
+    }
+
+    private void OnCloseAddCategoryOverlayClick(object sender, RoutedEventArgs e)
+    {
+        CloseAddCategoryOverlay();
+    }
+
+    private void CloseAddCategoryOverlay()
+    {
+        AddCategoryOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnCreateCategoryClick(object sender, RoutedEventArgs e)
+    {
+        var newCategory = AddCategoryNameTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(newCategory))
         {
             StatusText.Text = "Category name is required.";
@@ -209,12 +356,133 @@ public partial class MainWindow : Window
 
         _activeCategory = newCategory;
         EditCategoryCombo.Text = newCategory;
-        NewCategoryTextBox.Text = string.Empty;
+        AddItemCategoryCombo.Text = newCategory;
+
         RefreshCategoryControls();
         RenderProductButtons();
+        RefreshCategoryManagerRows();
+        CloseAddCategoryOverlay();
+
+        if (!TryPersistAssortment(out var persistenceError))
+        {
+            StatusText.Text = $"Category '{newCategory}' added, but assortment JSON could not be saved: {persistenceError}";
+            return;
+        }
+
         StatusText.Text = $"Category '{newCategory}' added.";
     }
 
+    private void RefreshCategoryManagerRows()
+    {
+        CategoryManagerRowsPanel.Children.Clear();
+
+        foreach (var category in GetKnownCategories())
+        {
+            var row = new Grid
+            {
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var labelBorder = new Border
+            {
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(10, 6, 10, 6),
+                Child = new TextBlock
+                {
+                    Text = category,
+                    FontSize = 18,
+                    FontWeight = FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            Grid.SetColumn(labelBorder, 0);
+            row.Children.Add(labelBorder);
+
+            var addButton = new WpfButton
+            {
+                Content = "+",
+                Width = 42,
+                Height = 42,
+                Margin = new Thickness(6, 0, 0, 0),
+                FontSize = 20,
+                Tag = category,
+                ToolTip = $"Add new item in category '{category}'"
+            };
+            addButton.Click += OnCategoryManagerAddItemClick;
+            Grid.SetColumn(addButton, 1);
+            row.Children.Add(addButton);
+
+            var deleteButton = new WpfButton
+            {
+                Content = "X",
+                Width = 42,
+                Height = 42,
+                Margin = new Thickness(6, 0, 0, 0),
+                FontSize = 18,
+                Tag = category,
+                ToolTip = $"Delete category '{category}'"
+            };
+            deleteButton.Click += OnCategoryManagerDeleteCategoryClick;
+            Grid.SetColumn(deleteButton, 2);
+            row.Children.Add(deleteButton);
+
+            CategoryManagerRowsPanel.Children.Add(row);
+        }
+    }
+
+    private void OnCategoryManagerAddItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton button || button.Tag is not string category)
+        {
+            return;
+        }
+
+        ShowAddItemOverlay(category, true);
+    }
+
+    private void OnCategoryManagerDeleteCategoryClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton button || button.Tag is not string category)
+        {
+            return;
+        }
+
+        if (_catalog.Any(item => string.Equals(item.Category, category, StringComparison.OrdinalIgnoreCase)))
+        {
+            StatusText.Text = $"Category '{category}' has items. Delete or move them first.";
+            return;
+        }
+
+        var removed = _extraCategories.RemoveAll(existing =>
+            string.Equals(existing, category, StringComparison.OrdinalIgnoreCase));
+
+        if (removed == 0)
+        {
+            StatusText.Text = $"Category '{category}' cannot be removed.";
+            return;
+        }
+
+        if (string.Equals(_activeCategory, category, StringComparison.OrdinalIgnoreCase))
+        {
+            _activeCategory = AllCategoriesLabel;
+        }
+
+        RefreshCategoryControls();
+        RenderProductButtons();
+        RefreshCategoryManagerRows();
+
+        if (!TryPersistAssortment(out var persistenceError))
+        {
+            StatusText.Text = $"Category '{category}' removed, but assortment JSON could not be saved: {persistenceError}";
+            return;
+        }
+
+        StatusText.Text = $"Category '{category}' removed.";
+    }
     private void OnSaveProductClick(object sender, RoutedEventArgs e)
     {
         var item = FindCatalogItem(_editingItemId);
@@ -246,30 +514,8 @@ public partial class MainWindow : Window
 
     private void OnAddNewProductClick(object sender, RoutedEventArgs e)
     {
-        if (!TryReadEditorValues(out var name, out var unitCents, out var category))
-        {
-            return;
-        }
-
-        var previousCategory = _activeCategory;
-        var item = new CatalogItemEditor(BuildUniqueProductId(name), name, unitCents, category);
-        _catalog.Add(item);
-        _activeCategory = category;
-
-        if (!ApplyCatalogUpdate("New product added. Cart reset."))
-        {
-            _catalog.Remove(item);
-            _activeCategory = previousCategory;
-            RefreshCategoryControls();
-            RenderProductButtons();
-            return;
-        }
-
-        LoadEditor(item);
-        ShowCatalogEditor();
-        RenderProductButtons();
+        ShowAddItemOverlay(_activeCategory, false);
     }
-
     private void OnDeleteProductClick(object sender, RoutedEventArgs e)
     {
         var item = FindCatalogItem(_editingItemId);
@@ -533,8 +779,20 @@ public partial class MainWindow : Window
 
         RefreshCategoryControls();
         RenderProductButtons();
+
+        if (!TryPersistAssortment(out var persistenceError))
+        {
+            StatusText.Text = $"{successStatus} Assortment JSON was not saved: {persistenceError}";
+            return true;
+        }
+
         StatusText.Text = successStatus;
         return true;
+    }
+
+    private bool TryPersistAssortment(out string? error)
+    {
+        return _assortmentStore.TrySave(_catalog, _extraCategories, out error);
     }
 
     private void RenderCategoryButtons(List<string>? categories = null)
@@ -650,8 +908,19 @@ public partial class MainWindow : Window
             EditCategoryCombo.Text = categories.FirstOrDefault() ?? "General";
         }
 
+        AddItemCategoryCombo.ItemsSource = categories;
+        if (string.IsNullOrWhiteSpace(AddItemCategoryCombo.Text))
+        {
+            AddItemCategoryCombo.Text = categories.FirstOrDefault() ?? "General";
+        }
+
         RenderCategoryButtons(categories);
         RefreshEditorList();
+
+        if (CategoryManagerOverlay.Visibility == Visibility.Visible)
+        {
+            RefreshCategoryManagerRows();
+        }
     }
 
     private void RefreshEditorList()
@@ -771,6 +1040,33 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private bool TryReadNewItemValues(out string name, out long unitCents, out string category)
+    {
+        name = AddItemNameTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            unitCents = 0;
+            category = string.Empty;
+            StatusText.Text = "Name is required.";
+            return false;
+        }
+
+        if (!TryParsePriceInChf(AddItemPriceTextBox.Text, out unitCents))
+        {
+            category = string.Empty;
+            StatusText.Text = "Price must be a valid CHF amount (e.g. 4.50).";
+            return false;
+        }
+
+        category = AddItemCategoryCombo.Text.Trim();
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            category = "General";
+        }
+
+        return true;
+    }
+
     private static bool TryParsePriceInChf(string input, out long cents)
     {
         cents = 0;
@@ -808,6 +1104,36 @@ public partial class MainWindow : Window
         }
 
         return candidate;
+    }
+
+    private void InitializeCatalogFromStore()
+    {
+        if (_assortmentStore.TryLoad(out var storedItems, out var storedExtraCategories, out var loadError))
+        {
+            _catalog.Clear();
+            _catalog.AddRange(storedItems);
+            _extraCategories.Clear();
+            _extraCategories.AddRange(storedExtraCategories);
+            _activeCategory = AllCategoriesLabel;
+            _catalogLoadWarning = null;
+            return;
+        }
+
+        InitializeCatalogDefaults();
+
+        if (!string.IsNullOrWhiteSpace(loadError))
+        {
+            _catalogLoadWarning = $"Using default assortment. Failed to load {_assortmentStore.FilePath}: {loadError}";
+            return;
+        }
+
+        if (_assortmentStore.TrySave(_catalog, _extraCategories, out var saveError))
+        {
+            _catalogLoadWarning = $"Created assortment backend: {_assortmentStore.FilePath}";
+            return;
+        }
+
+        _catalogLoadWarning = $"Using default assortment. Failed to create {_assortmentStore.FilePath}: {saveError}";
     }
 
     private void InitializeCatalogDefaults()
@@ -892,4 +1218,6 @@ public partial class MainWindow : Window
         window.WindowState = WindowState.Maximized;
     }
 }
+
+
 
