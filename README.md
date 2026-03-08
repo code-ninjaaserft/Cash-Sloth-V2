@@ -61,7 +61,7 @@ The MVP stack is functional end-to-end:
 
 ## Roadmap
 Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
-Current planning target: **QEN-GV in mid-March 2026** (`2026-03-14`).
+Current planning targets: **QEN-GV** (`2026-03-14`) and **Z'Ämme ässe** (`2026-08-22`).
 
 ## Local cleanup
 - Remove build and IDE artifacts: `pwsh ./tools/clean_local_artifacts.ps1`
@@ -71,9 +71,10 @@ Current planning target: **QEN-GV in mid-March 2026** (`2026-03-14`).
 - Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
 
 ## Next steps
-1. [x] Harden release packaging and rehearsal checklist for QEN-GV (see `docs/QEN_GV_RELEASE_REHEARSAL_CHECKLIST.md`).
+1. [ ] Run packaged-output smoke rehearsal and capture final QEN-GV sign-off notes.
 2. [x] Maintain a concrete MVP acceptance checklist for QEN-GV (see `docs/QEN_GV_MVP_ACCEPTANCE_CHECKLIST.md`).
-3. [ ] Prepare persistence and preset handoff for the Z'Ämme ässe phase.
+3. [x] Define baseline roadmap phases for the Z'Ämme ässe milestone (see `docs/ROADMAP.md`).
+4. [ ] Start persistence/preset implementation handoff for the Z'Ämme ässe phase.
 
 > Barcode scanning, database persistence, and preset management are later milestones and are **not** scaffolded here yet.
 

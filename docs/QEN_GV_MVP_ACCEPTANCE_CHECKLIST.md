@@ -31,7 +31,12 @@ Target milestone: **QEN-GV** (target date **2026-03-14**).
   - `dotnet restore src/CashSloth.App/CashSloth.App.csproj`
   - `dotnet build src/CashSloth.App/CashSloth.App.csproj --no-restore -c Release`
 
+## Verification snapshot (2026-03-06)
+- [x] Local app build passed (`dotnet restore` + `dotnet build -c Release`).
+- [x] Local core contract tests passed (`ctest` 4/4 via generated CMake build).
+- [x] Latest CI run on `main` succeeded (`.github/workflows/ci.yml`, run `22778999078`).
+
 ## Exit criteria
 - [ ] All must-have flow checks passed once on a rehearsal machine.
-- [ ] Automated checks passed on local run and CI.
+- [x] Automated checks passed on local run and CI.
 - [ ] Blocking defects for rehearsal are resolved or explicitly waived.

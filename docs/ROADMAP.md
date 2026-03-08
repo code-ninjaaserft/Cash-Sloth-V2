@@ -1,6 +1,6 @@
 # Cash-Sloth v2 Roadmap
 
-_Last updated: 2026-03-06_
+_Last updated: 2026-03-08_
 
 ## Architecture summary
 Cash-Sloth v2 is layered as **Core (C++) -> C-API (C ABI) -> WPF (.NET)**. The C++ core owns business rules and data shaping, the C-API exposes a stable boundary (JSON/`char*` with explicit free patterns), and the WPF app focuses on workflow and presentation.
@@ -15,34 +15,50 @@ Dates are planning targets and may be adjusted.
 **Target date:** 2026-03-14  
 Focus: stabilize the shipped MVP workflows for event readiness.
 
-**Phases & DoD**
-1. **Foundation stability**
+**Phase status (as of 2026-03-06)**
+1. **Foundation stability** (`done`)
    - Core DLL + WPF app build reliably on Windows.
-   - CI passes without manual patching.
-2. **C-API hardening**
-   - Catalog, cart, and payment contracts remain stable and documented.
-   - Contract tests cover happy path and key invalid-input paths.
-3. **POS workflow readiness**
-   - Product/category interactions and cart/payment flow are stable in MVP usage.
-   - Catalog edit flow remains deterministic (cart reset + clean refresh behavior).
-4. **Customer display rehearsal**
-   - Second-screen behavior verified in single-screen fallback and dual-screen mode.
-5. **Release rehearsal**
-   - Tag-based packaging tested once end-to-end (best effort).
+   - CI passes on `main` without manual patching.
+2. **C-API hardening** (`done`)
+   - Catalog, cart, and payment contracts are stable and documented.
+   - Contract tests cover baseline happy path and invalid-input paths.
+3. **POS workflow readiness** (`done`, pending final manual rehearsal)
+   - Product/category interactions and cart/payment flow are implemented in MVP usage.
+   - Catalog edit flow is deterministic (cart reset + refresh after catalog updates).
+4. **Customer display rehearsal** (`in progress`)
+   - Window behavior is implemented and wired; packaged smoke verification is pending.
+5. **Release rehearsal** (`in progress`)
+   - Tag-based packaging produced release artifact (`v2.0.0`) on 2026-03-06.
+   - Packaged-output smoke run notes and final team sign-off are still open.
 
 ### Z'Ämme ässe (Aug 2026)
 Focus: operational readiness, data persistence, and UI polish.
 
-**Phases & DoD**
-1. **Presets & persistence**
-   - Preset model defined with load/save pipeline.
-   - SQLite persistence with schema versioning and migration strategy.
-2. **Input & device readiness**
-   - Barcode wedge pipeline with parsing tests.
-   - Optional Android-Bluetooth protocol spec + prototype hook documented.
-3. **UI & customer display polish**
-   - Dynamic button layout + text fitting.
-   - Customer display refinements and rehearsal checklist.
+**Roadmap cadence (toward 2026-08-22)**
+1. **2026-03-16 to 2026-03-31: planning freeze**
+   - Finalize persistence scope and data ownership boundaries.
+   - Write technical design notes for preset model + migration approach.
+   - Kickoff progress: SQLite scaffold + migration baseline documented in `docs/AUGUST_PERSISTENCE_KICKOFF.md`.
+2. **2026-04-01 to 2026-05-15: presets & persistence**
+   - Implement preset model with load/save path.
+   - Add SQLite schema versioning with deterministic migrations.
+3. **2026-05-16 to 2026-06-20: input readiness**
+   - Deliver barcode wedge pipeline and parsing tests.
+   - Decide if optional Android-Bluetooth hook remains in or out.
+4. **2026-06-21 to 2026-07-20: UI/customer display polish**
+   - Dynamic button layout and text fitting for operational catalogs.
+   - Customer display readability and refresh smoothing.
+5. **2026-07-21 to 2026-08-10: rehearsal + freeze**
+   - Execute event rehearsal checklist.
+   - Apply bug-fix-only freeze for remaining blockers.
+6. **2026-08-11 to 2026-08-22: final buffer**
+   - Contingency buffer for blockers and packaging fixes.
+   - Final sign-off package for event usage.
+
+**August milestone DoD**
+- Presets and persistence are stable, migration-safe, and documented.
+- Input handling is test-covered and resilient for event operation.
+- UI/customer display polish and rehearsal checklist are completed.
 
 ## Related docs
 - [Milestones](MILESTONES.md)

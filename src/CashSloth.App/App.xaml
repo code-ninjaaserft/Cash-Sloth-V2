@@ -3,5 +3,170 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
   <Application.Resources>
+    <SolidColorBrush x:Key="AppWindowBackgroundBrush" Color="#FFF6F7FA" />
+    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="AppControlBackgroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="AppControlBorderBrush" Color="#FFB0B0B0" />
+    <SolidColorBrush x:Key="AppForegroundBrush" Color="#FF1A1A1A" />
+    <SolidColorBrush x:Key="AppSelectionBackgroundBrush" Color="#FF0078D7" />
+    <SolidColorBrush x:Key="AppSelectionForegroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="AppCategorySelectionBrush" Color="#FFD0E0F5" />
+    <SolidColorBrush x:Key="AppCategorySelectionBorderBrush" Color="#FF4682B4" />
+    <SolidColorBrush x:Key="AppEditSelectionBrush" Color="#FFFDF6BA" />
+
+    <Style TargetType="{x:Type Window}">
+      <Setter Property="Background" Value="{DynamicResource AppWindowBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type TextBlock}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type GroupBox}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type TabControl}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style TargetType="{x:Type TabItem}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="Padding" Value="12,4,12,4" />
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type Button}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type CheckBox}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type TextBox}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+      <Setter Property="SelectionOpacity" Value="0.9" />
+    </Style>
+
+    <Style TargetType="{x:Type ComboBox}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type ComboBoxItem}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsHighlighted" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+        </Trigger>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type ListBox}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type ListBoxItem}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type DataGrid}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="RowBackground" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="AlternatingRowBackground" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridColumnHeader}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridRow}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type DataGridRowHeader}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridCell}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="{x:Type ToolTip}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style TargetType="{x:Type ScrollViewer}">
+      <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    </Style>
+
+    <Style TargetType="{x:Type Separator}">
+      <Setter Property="Background" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AppControlBorderBrush}" />
+    </Style>
   </Application.Resources>
 </Application>

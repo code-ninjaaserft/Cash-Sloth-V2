@@ -32,15 +32,15 @@
       </Grid.ColumnDefinitions>
 
       <StackPanel Grid.Column="0">
-        <TextBlock Text="Total" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock x:Name="TotalLabelText" Text="Total" FontSize="18" FontWeight="SemiBold" />
         <TextBlock x:Name="TotalValueText" FontSize="32" FontWeight="Bold" Text="CHF 0.00" />
       </StackPanel>
       <StackPanel Grid.Column="1">
-        <TextBlock Text="Given" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock x:Name="GivenLabelText" Text="Given" FontSize="18" FontWeight="SemiBold" />
         <TextBlock x:Name="GivenValueText" FontSize="32" FontWeight="Bold" Text="CHF 0.00" />
       </StackPanel>
       <StackPanel Grid.Column="2">
-        <TextBlock Text="Change" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock x:Name="ChangeLabelText" Text="Change" FontSize="18" FontWeight="SemiBold" />
         <TextBlock x:Name="ChangeValueText" FontSize="32" FontWeight="Bold" Text="CHF 0.00" />
       </StackPanel>
     </Grid>

@@ -1,8 +1,8 @@
 [
   {
-    "title": "QEN-GV (Feb 2026)",
-    "due_on": "2026-02-14T23:59:59Z",
-    "description": "Buildable skeleton, C-API contract, core MVP behaviors, and WPF proof-of-life.",
+    "title": "QEN-GV (Mid-Mar 2026)",
+    "due_on": "2026-03-14T23:59:59Z",
+    "description": "MVP workflow hardening, contract stability, and release rehearsal readiness.",
     "state": "open"
   },
   {

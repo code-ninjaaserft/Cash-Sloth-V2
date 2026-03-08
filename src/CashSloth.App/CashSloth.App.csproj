@@ -12,6 +12,8 @@
 
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)..\..</RepoRoot>
+    <LocalAppDataDir>$(LOCALAPPDATA)</LocalAppDataDir>
+    <LocalAppDataDir Condition="'$(LocalAppDataDir)' == ''">$(USERPROFILE)\AppData\Local</LocalAppDataDir>
 
     <CMakeExe>cmake</CMakeExe>
     <CMakeExe Condition="'$(VSInstallDir)' != '' and Exists('$(VSInstallDir)Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(VSInstallDir)Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</CMakeExe>
@@ -40,8 +42,9 @@
     <UseNinja>false</UseNinja>
     <UseNinja Condition="'$(UseVCVars)' == 'true' and Exists('$(CMakeNinjaExe)')">true</UseNinja>
 
-    <CashSlothCoreBuildDir>$(RepoRoot)\build\core</CashSlothCoreBuildDir>
-    <CashSlothCoreBuildDir Condition="'$(UseNinja)' == 'true'">$(RepoRoot)\build\core-ninja</CashSlothCoreBuildDir>
+    <CashSlothCoreBuildRoot>$(LocalAppDataDir)\CashSloth\native-build</CashSlothCoreBuildRoot>
+    <CashSlothCoreBuildDir>$(CashSlothCoreBuildRoot)\core</CashSlothCoreBuildDir>
+    <CashSlothCoreBuildDir Condition="'$(UseNinja)' == 'true'">$(CashSlothCoreBuildRoot)\core-ninja</CashSlothCoreBuildDir>
 
     <CashSlothCoreBinDir>$(CashSlothCoreBuildDir)\bin\$(Configuration)</CashSlothCoreBinDir>
     <CashSlothCoreBinDir Condition="'$(UseNinja)' == 'true'">$(CashSlothCoreBuildDir)\bin</CashSlothCoreBinDir>
@@ -52,8 +55,12 @@
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+  </ItemGroup>
+
   <Target Name="BuildNativeCore" BeforeTargets="CopyCashSlothCore"
-          Condition="'$(OS)' == 'Windows_NT'">
+          Condition="'$(OS)' == 'Windows_NT' and '$(SkipNativeCoreBuild)' != 'true'">
     <Message Importance="high" Text="Building CashSlothCore via CMake (Configuration=$(Configuration), CMakeExe=$(CMakeExe), UseVCVars=$(UseVCVars), UseNinja=$(UseNinja), BuildDir=$(CashSlothCoreBuildDir))." />
     <Exec Command="&quot;$(CMakeExe)&quot; --version" IgnoreExitCode="true">
       <Output TaskParameter="ExitCode" PropertyName="CMakeVersionExitCode" />
@@ -61,17 +68,17 @@
     <Error Condition="'$(CMakeVersionExitCode)' != '0'"
            Text="CMake not found. Install CMake or add the Visual Studio component 'C++ CMake tools for Windows'." />
 
-    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -G Ninja -DCMAKE_MAKE_PROGRAM=&quot;$(CMakeNinjaExe)&quot; -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=$(Configuration)" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
-    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot;" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
+    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -G Ninja -DCMAKE_MAKE_PROGRAM=&quot;$(CMakeNinjaExe)&quot; -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=$(Configuration) -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
+    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --target CashSlothCore --parallel 1" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
 
-    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot;" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
-    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --config $(Configuration)" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
+    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
+    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --target CashSlothCore --config $(Configuration) --parallel 1" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
 
-    <Exec Command="&quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot;" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
-    <Exec Command="&quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --config $(Configuration)" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
+    <Exec Command="&quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
+    <Exec Command="&quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --target CashSlothCore --config $(Configuration) --parallel 1" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
   </Target>
 
-  <Target Name="CopyCashSlothCore" AfterTargets="Build">
+  <Target Name="CopyCashSlothCore" AfterTargets="Build" Condition="'$(SkipNativeCoreBuild)' != 'true'">
     <ItemGroup>
       <CashSlothCoreDll Include="$(CashSlothCoreDll)" Condition="Exists('$(CashSlothCoreDll)')" />
     </ItemGroup>

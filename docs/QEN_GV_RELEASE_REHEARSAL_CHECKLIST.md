@@ -5,20 +5,20 @@ _Last updated: 2026-03-06_
 Scope: one dry run for the tag-driven Windows release flow before **2026-03-14**.
 
 ## Pre-flight
-- [ ] Working tree is clean.
-- [ ] CI workflow (`.github/workflows/ci.yml`) is green on `main`.
-- [ ] Local release build succeeds:
+- [x] Working tree is clean.
+- [x] CI workflow (`.github/workflows/ci.yml`) is green on `main` (run `22778999078`, 2026-03-06).
+- [x] Local release build succeeds:
   - `dotnet restore src/CashSloth.App/CashSloth.App.csproj`
   - `dotnet build src/CashSloth.App/CashSloth.App.csproj -c Release --no-restore`
 
 ## Release workflow rehearsal
-1. Create and push a rehearsal tag (`v0.0.0-rc1` style).
-2. Verify `.github/workflows/release.yml` completes on GitHub Actions.
-3. Download produced ZIP artifact (`cash-sloth-v2-<tag>-windows.zip`).
-4. Verify ZIP contents include:
-   - `CSV2.exe`
-   - `CashSlothCore.dll`
-   - required runtime files from `dotnet publish` output.
+- [x] Release tag push validated (`v2.0.0`).
+- [x] `.github/workflows/release.yml` completed on GitHub Actions (run `22779133037`, 2026-03-06).
+- [x] Produced ZIP artifact downloaded (`cash-sloth-v2-v2.0.0-windows.zip`).
+- [x] ZIP contents verified:
+  - `CSV2.exe`
+  - `CashSlothCore.dll`
+  - runtime files from `dotnet publish` output (`CSV2.dll`, `.deps.json`, `.runtimeconfig.json`)
 
 ## Smoke run from packaged output
 - [ ] Launch `CSV2.exe` from extracted ZIP folder.
