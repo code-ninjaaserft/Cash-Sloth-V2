@@ -6,7 +6,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using Screen = System.Windows.Forms.Screen;
 using WpfButton = System.Windows.Controls.Button;
 
@@ -16,6 +18,11 @@ public partial class MainWindow : Window
 {
     private const string AllCategoriesToken = "__ALL__";
     private const string DefaultPresetSelection = "DEFAULT";
+    private const double ToolbarExpandedHeight = 240;
+    private const double ToolbarCollapsedHeight = 66;
+    private const double CategoryButtonMinWidth = 128;
+    private const double CategoryButtonWrapWidth = 176;
+    private const double CategoryButtonTextWrapWidth = 156;
 
     private readonly ObservableCollection<CartLineView> _lines = new();
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -24,8 +31,8 @@ public partial class MainWindow : Window
     private readonly AssortmentPresetStore _assortmentStore = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly FxRateProvider _fxRateProvider = new();
-    private readonly RuntimeTranslator _runtimeTranslator = new();
     private readonly OnlinePresetProvider _onlinePresetProvider = new();
+    private readonly AuthSqliteStore _authStore = new();
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
@@ -37,6 +44,13 @@ public partial class MainWindow : Window
     private AppSettings _settings = AppSettings.Default;
     private string _activeCategory = AllCategoriesToken;
     private string _activePresetId = DefaultPresetSelection;
+    private AuthSessionUser? _currentUser;
+    private List<AuthAccountSummary> _accountSummaries = new();
+    private int _quantityEditLineIndex = -1;
+    private int _quantityEditCurrentQty;
+    private string _quantityEditItemId = string.Empty;
+    private string _quantityEditItemLabel = string.Empty;
+    private bool _isToolbarCollapsed;
 
     public MainWindow()
     {
@@ -49,6 +63,7 @@ public partial class MainWindow : Window
         RefreshCategoryControls();
         RenderProductButtons();
         RefreshPresetControls();
+        InitializeAuthUi();
         ApplyLocalizedLiterals();
         RefreshQuickTenderButtons();
         UpdateSummaryValues(0, 0, 0);
@@ -159,6 +174,82 @@ public partial class MainWindow : Window
         RenderProductButtons();
     }
 
+    private void OnToolbarTabPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not TabControl tabControl)
+        {
+            return;
+        }
+
+        var clickedTab = FindToolbarTabFromSource(e.OriginalSource, tabControl);
+        if (clickedTab == null)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(tabControl.SelectedItem, clickedTab))
+        {
+            SetToolbarCollapsed(!_isToolbarCollapsed);
+            e.Handled = true;
+        }
+    }
+
+    private void OnToolbarTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, ToolbarTabControl))
+        {
+            return;
+        }
+
+        if (_isToolbarCollapsed)
+        {
+            SetToolbarCollapsed(false);
+        }
+    }
+
+    private void SetToolbarCollapsed(bool collapsed)
+    {
+        _isToolbarCollapsed = collapsed;
+        ToolbarRowDefinition.Height = new GridLength(collapsed ? ToolbarCollapsedHeight : ToolbarExpandedHeight);
+    }
+
+    private static TabItem? FindToolbarTabFromSource(object? originalSource, TabControl tabControl)
+    {
+        if (originalSource is not DependencyObject source)
+        {
+            return null;
+        }
+
+        DependencyObject? current = source;
+        while (current != null)
+        {
+            if (current is TabItem tabItem &&
+                ReferenceEquals(ItemsControl.ItemsControlFromItemContainer(tabItem), tabControl))
+            {
+                return tabItem;
+            }
+
+            current = GetVisualOrLogicalParent(current);
+        }
+
+        return null;
+    }
+
+    private static DependencyObject? GetVisualOrLogicalParent(DependencyObject child)
+    {
+        if (child is Visual or Visual3D)
+        {
+            return VisualTreeHelper.GetParent(child);
+        }
+
+        return child switch
+        {
+            FrameworkElement frameworkElement => frameworkElement.Parent,
+            FrameworkContentElement contentElement => contentElement.Parent,
+            _ => null
+        };
+    }
+
     private void OnRefreshPresetListClick(object sender, RoutedEventArgs e)
     {
         RefreshPresetControls(ResolveSelectedPresetId());
@@ -259,6 +350,11 @@ public partial class MainWindow : Window
 
     private void OnImportOnlinePresetClick(object sender, RoutedEventArgs e)
     {
+        if (!EnsureRole(UserRole.Downloader, "import online presets"))
+        {
+            return;
+        }
+
         var url = OnlinePresetUrlTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(url))
         {
@@ -308,6 +404,331 @@ public partial class MainWindow : Window
         OnlinePresetNameTextBox.Text = string.Empty;
     }
 
+    private void OnUploadPresetClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureRole(UserRole.Creator, "upload presets"))
+        {
+            return;
+        }
+
+        var presetId = ResolveSelectedPresetId();
+        if (string.IsNullOrWhiteSpace(presetId))
+        {
+            StatusText.Text = L("status.preset_select_required");
+            return;
+        }
+
+        StatusText.Text = $"Upload endpoint for preset '{presetId}' is not wired yet. Authentication and role checks are active.";
+    }
+
+    private void InitializeAuthUi()
+    {
+        AccountRoleComboBox.ItemsSource = Enum.GetValues<UserRole>();
+        AccountRoleComboBox.SelectedItem = UserRole.Downloader;
+        AccountEnabledCheckBox.IsChecked = true;
+
+        if (!_authStore.TryEnsureInitialized(out var seededDefaultAdmin, out var initError))
+        {
+            StatusText.Text = $"Account store initialization failed: {initError ?? "unknown error"}";
+            RefreshAuthUi(loadAccounts: false);
+            return;
+        }
+
+        var seededMessage = seededDefaultAdmin
+            ? "Default admin created: username 'admin', password 'admin'. Change it immediately."
+            : null;
+
+        if (_authStore.TryAuthenticateLocalAdminBypass(out var recoveredUser, out var recoveryError) && recoveredUser != null)
+        {
+            _currentUser = recoveredUser;
+            RefreshAuthUi(loadAccounts: true);
+            StatusText.Text = seededMessage == null
+                ? $"Local admin recovery unlocked this laptop as '{recoveredUser.Username}'."
+                : $"{seededMessage} Local admin recovery unlocked this laptop as '{recoveredUser.Username}'.";
+            return;
+        }
+
+        RefreshAuthUi(loadAccounts: true);
+
+        if (seededDefaultAdmin)
+        {
+            StatusText.Text = seededMessage;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(recoveryError))
+        {
+            StatusText.Text = $"Local admin recovery unavailable: {recoveryError}";
+        }
+    }
+
+    private void RefreshAuthUi(bool loadAccounts)
+    {
+        var isSignedIn = _currentUser != null;
+        CurrentUserTextBlock.Text = isSignedIn
+            ? $"{_currentUser!.Username} ({_currentUser.Role})"
+            : "Not signed in";
+
+        LoginUsernameTextBox.IsEnabled = !isSignedIn;
+        LoginPasswordBox.IsEnabled = !isSignedIn;
+        LoginButton.IsEnabled = !isSignedIn;
+        LogoutButton.IsEnabled = isSignedIn;
+        LocalAdminRecoveryButton.IsEnabled = !isSignedIn;
+
+        var canDownload = HasRole(UserRole.Downloader);
+        var canUpload = HasRole(UserRole.Creator);
+        var canManage = HasRole(UserRole.Admin);
+
+        OnlinePresetUrlTextBox.IsEnabled = canDownload;
+        OnlinePresetNameTextBox.IsEnabled = canDownload;
+        SetImportedPresetActiveCheckBox.IsEnabled = canDownload;
+        ImportOnlinePresetButton.IsEnabled = canDownload;
+        UploadPresetButton.IsEnabled = canUpload;
+
+        AccountsListBox.IsEnabled = canManage;
+        RefreshAccountsButton.IsEnabled = canManage;
+        AccountUsernameTextBox.IsEnabled = canManage;
+        AccountPasswordBox.IsEnabled = canManage;
+        AccountRoleComboBox.IsEnabled = canManage;
+        AccountEnabledCheckBox.IsEnabled = canManage;
+        SaveAccountButton.IsEnabled = canManage;
+        DeleteAccountButton.IsEnabled = canManage;
+
+        if (canManage && loadAccounts)
+        {
+            _ = RefreshAccountsFromStore(updateStatusOnError: true);
+        }
+        else if (!canManage)
+        {
+            _accountSummaries = new List<AuthAccountSummary>();
+            AccountsListBox.ItemsSource = _accountSummaries;
+            ClearAccountEditor();
+        }
+    }
+
+    private void OnLoginClick(object sender, RoutedEventArgs e)
+    {
+        var username = LoginUsernameTextBox.Text.Trim();
+        var password = LoginPasswordBox.Password;
+
+        if (!_authStore.TryAuthenticate(username, password, out var user, out var authError) || user == null)
+        {
+            StatusText.Text = $"Login failed: {authError ?? "invalid credentials"}";
+            return;
+        }
+
+        _currentUser = user;
+        LoginPasswordBox.Password = string.Empty;
+        RefreshAuthUi(loadAccounts: true);
+        StatusText.Text = $"Signed in as '{user.Username}' ({user.Role}).";
+    }
+
+    private void OnLogoutClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentUser == null)
+        {
+            return;
+        }
+
+        var previousUser = _currentUser.Username;
+        _currentUser = null;
+        RefreshAuthUi(loadAccounts: false);
+        StatusText.Text = $"Signed out '{previousUser}'.";
+    }
+
+    private void OnLocalAdminRecoveryClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentUser != null)
+        {
+            return;
+        }
+
+        if (!_authStore.TryAuthenticateLocalAdminBypass(out var recoveredUser, out var recoveryError) || recoveredUser == null)
+        {
+            StatusText.Text = $"Local admin recovery failed: {recoveryError ?? "unknown error"}";
+            return;
+        }
+
+        _currentUser = recoveredUser;
+        RefreshAuthUi(loadAccounts: true);
+        StatusText.Text = $"Local admin recovery unlocked this laptop as '{recoveredUser.Username}'.";
+    }
+
+    private void OnRefreshAccountsClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureRole(UserRole.Admin, "manage accounts"))
+        {
+            return;
+        }
+
+        if (!RefreshAccountsFromStore(updateStatusOnError: true))
+        {
+            return;
+        }
+
+        StatusText.Text = "Account list refreshed.";
+    }
+
+    private void OnAccountSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AccountsListBox.SelectedItem is not AuthAccountSummary selected)
+        {
+            return;
+        }
+
+        AccountUsernameTextBox.Text = selected.Username;
+        AccountPasswordBox.Password = string.Empty;
+        AccountRoleComboBox.SelectedItem = selected.Role;
+        AccountEnabledCheckBox.IsChecked = selected.IsEnabled;
+    }
+
+    private void OnSaveAccountClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureRole(UserRole.Admin, "manage accounts"))
+        {
+            return;
+        }
+
+        var username = AccountUsernameTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            StatusText.Text = "Account username is required.";
+            return;
+        }
+
+        if (AccountRoleComboBox.SelectedItem is not UserRole role)
+        {
+            role = UserRole.Downloader;
+        }
+
+        var password = AccountPasswordBox.Password;
+        var passwordValue = string.IsNullOrWhiteSpace(password) ? null : password;
+        var isEnabled = AccountEnabledCheckBox.IsChecked == true;
+
+        if (!_authStore.TryUpsertAccount(username, passwordValue, role, isEnabled, out var saveError))
+        {
+            StatusText.Text = $"Account save failed: {saveError ?? "unknown error"}";
+            return;
+        }
+
+        AccountPasswordBox.Password = string.Empty;
+        if (!RefreshAccountsFromStore(updateStatusOnError: true))
+        {
+            return;
+        }
+
+        SyncCurrentUserFromAccountList();
+        RefreshAuthUi(loadAccounts: false);
+        StatusText.Text = $"Account '{username}' saved.";
+    }
+
+    private void OnDeleteAccountClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureRole(UserRole.Admin, "manage accounts"))
+        {
+            return;
+        }
+
+        if (AccountsListBox.SelectedItem is not AuthAccountSummary selected)
+        {
+            StatusText.Text = "Select an account to delete.";
+            return;
+        }
+
+        if (!_authStore.TryDeleteAccount(selected.Username, out var deleteError))
+        {
+            StatusText.Text = $"Account delete failed: {deleteError ?? "unknown error"}";
+            return;
+        }
+
+        if (_currentUser != null &&
+            string.Equals(_currentUser.Username, selected.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            _currentUser = null;
+        }
+
+        ClearAccountEditor();
+        if (!RefreshAccountsFromStore(updateStatusOnError: true))
+        {
+            return;
+        }
+
+        SyncCurrentUserFromAccountList();
+        RefreshAuthUi(loadAccounts: false);
+        StatusText.Text = $"Account '{selected.Username}' deleted.";
+    }
+
+    private bool RefreshAccountsFromStore(bool updateStatusOnError)
+    {
+        if (!_authStore.TryListAccounts(out var summaries, out var error))
+        {
+            if (updateStatusOnError)
+            {
+                StatusText.Text = $"Failed to load accounts: {error ?? "unknown error"}";
+            }
+
+            return false;
+        }
+
+        _accountSummaries = summaries;
+        AccountsListBox.ItemsSource = _accountSummaries;
+        return true;
+    }
+
+    private void SyncCurrentUserFromAccountList()
+    {
+        if (_currentUser == null)
+        {
+            return;
+        }
+
+        var updated = _accountSummaries.FirstOrDefault(summary =>
+            string.Equals(summary.Username, _currentUser.Username, StringComparison.OrdinalIgnoreCase));
+        if (updated == null || !updated.IsEnabled)
+        {
+            _currentUser = null;
+            return;
+        }
+
+        _currentUser = new AuthSessionUser(updated.Username, updated.Role);
+    }
+
+    private static void ClearTextBox(TextBox textBox)
+    {
+        textBox.Text = string.Empty;
+    }
+
+    private void ClearAccountEditor()
+    {
+        AccountsListBox.SelectedItem = null;
+        ClearTextBox(AccountUsernameTextBox);
+        AccountPasswordBox.Password = string.Empty;
+        AccountRoleComboBox.SelectedItem = UserRole.Downloader;
+        AccountEnabledCheckBox.IsChecked = true;
+    }
+
+    private bool EnsureRole(UserRole minimumRole, string action)
+    {
+        if (_currentUser == null)
+        {
+            StatusText.Text = $"Sign in is required to {action}.";
+            return false;
+        }
+
+        if (!HasRole(minimumRole))
+        {
+            StatusText.Text = $"Permission denied. '{minimumRole}' role or higher is required to {action}.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool HasRole(UserRole minimumRole)
+    {
+        return _currentUser != null && _currentUser.Role >= minimumRole;
+    }
+
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         StatusText.Text = L("status.initializing_core");
@@ -342,6 +763,7 @@ public partial class MainWindow : Window
         CloseAddItemOverlay();
         CloseCategoryManager();
         CloseAddCategoryOverlay();
+        CloseCartQuantityOverlay();
         CloseCustomerDisplay();
 
         if (_cart != IntPtr.Zero)
@@ -650,7 +1072,7 @@ public partial class MainWindow : Window
 
         foreach (var category in GetKnownCategories())
         {
-            var translatedCategory = TranslateCatalogText(category);
+            var categoryLabel = category;
             var row = new Grid
             {
                 Margin = new Thickness(0, 0, 0, 6)
@@ -666,7 +1088,7 @@ public partial class MainWindow : Window
                 Padding = new Thickness(10, 6, 10, 6),
                 Child = new TextBlock
                 {
-                    Text = translatedCategory,
+                    Text = categoryLabel,
                     FontSize = 18,
                     FontWeight = FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center
@@ -683,7 +1105,7 @@ public partial class MainWindow : Window
                 Margin = new Thickness(6, 0, 0, 0),
                 FontSize = 20,
                 Tag = category,
-                ToolTip = Lf("tooltip.add_item_in_category", translatedCategory)
+                ToolTip = Lf("tooltip.add_item_in_category", categoryLabel)
             };
             addButton.Click += OnCategoryManagerAddItemClick;
             Grid.SetColumn(addButton, 1);
@@ -697,7 +1119,7 @@ public partial class MainWindow : Window
                 Margin = new Thickness(6, 0, 0, 0),
                 FontSize = 18,
                 Tag = category,
-                ToolTip = Lf("tooltip.delete_category", translatedCategory)
+                ToolTip = Lf("tooltip.delete_category", categoryLabel)
             };
             deleteButton.Click += OnCategoryManagerDeleteCategoryClick;
             Grid.SetColumn(deleteButton, 2);
@@ -845,6 +1267,204 @@ public partial class MainWindow : Window
         RefreshFromCoreJson();
     }
 
+    private void OnCartQuantityClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureCart())
+        {
+            return;
+        }
+
+        if (!TryGetLineIndexFromSender(sender, out var lineIndex))
+        {
+            return;
+        }
+
+        var lines = _lastSnapshot?.Lines;
+        if (lines == null || lineIndex < 0 || lineIndex >= lines.Length)
+        {
+            StatusText.Text = "Cart lines are outdated. Please try again.";
+            return;
+        }
+
+        var line = lines[lineIndex];
+        var itemId = line.Id?.Trim();
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            StatusText.Text = "Selected cart line has no valid item id.";
+            return;
+        }
+
+        _quantityEditLineIndex = lineIndex;
+        _quantityEditCurrentQty = Math.Max(1, line.Qty);
+        _quantityEditItemId = itemId;
+        _quantityEditItemLabel = line.Name ?? itemId;
+
+        CartLinesGrid.SelectedIndex = lineIndex;
+        CartQuantityItemText.Text = $"{_quantityEditItemLabel} (current: {_quantityEditCurrentQty})";
+        CartQuantityTextBox.Text = _quantityEditCurrentQty.ToString(CultureInfo.CurrentCulture);
+        CartQuantityOverlay.Visibility = Visibility.Visible;
+        CartQuantityTextBox.Focus();
+        CartQuantityTextBox.SelectAll();
+    }
+
+    private void OnApplyCartQuantityClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureCart())
+        {
+            return;
+        }
+
+        if (!TryParseQuantityInput(CartQuantityTextBox.Text, out var targetQty))
+        {
+            StatusText.Text = "Quantity must be a positive whole number.";
+            return;
+        }
+
+        if (!TryResolveQuantityEditLine(out var lineIndex, out var currentQty, out var itemId, out var itemLabel, out var resolveError))
+        {
+            StatusText.Text = resolveError ?? "Could not resolve cart line for quantity update.";
+            return;
+        }
+
+        if (targetQty == currentQty)
+        {
+            CloseCartQuantityOverlay();
+            StatusText.Text = $"Quantity for '{itemLabel}' is already {targetQty}.";
+            return;
+        }
+
+        if (targetQty > currentQty)
+        {
+            var delta = targetQty - currentQty;
+            if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, delta), "set cart quantity"))
+            {
+                return;
+            }
+        }
+        else
+        {
+            if (!TryCoreCall(NativeMethods.cs_cart_remove_line(_cart, lineIndex), "reset cart line quantity"))
+            {
+                return;
+            }
+
+            if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, targetQty), "set cart quantity"))
+            {
+                return;
+            }
+        }
+
+        CloseCartQuantityOverlay();
+        RefreshFromCoreJson();
+        StatusText.Text = $"Quantity for '{itemLabel}' set to {targetQty}.";
+    }
+
+    private void OnCloseCartQuantityOverlayClick(object sender, RoutedEventArgs e)
+    {
+        CloseCartQuantityOverlay();
+    }
+
+    private void CloseCartQuantityOverlay()
+    {
+        CartQuantityOverlay.Visibility = Visibility.Collapsed;
+        _quantityEditLineIndex = -1;
+        _quantityEditCurrentQty = 0;
+        _quantityEditItemId = string.Empty;
+        _quantityEditItemLabel = string.Empty;
+        CartQuantityTextBox.Text = string.Empty;
+    }
+
+    private bool TryGetLineIndexFromSender(object sender, out int lineIndex)
+    {
+        lineIndex = -1;
+
+        if (sender is not WpfButton button || button.Tag == null)
+        {
+            return false;
+        }
+
+        if (button.Tag is int tagIndex)
+        {
+            lineIndex = tagIndex;
+            return true;
+        }
+
+        if (button.Tag is long longIndex)
+        {
+            lineIndex = (int)longIndex;
+            return true;
+        }
+
+        if (button.Tag is string textIndex &&
+            int.TryParse(textIndex, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedIndex))
+        {
+            lineIndex = parsedIndex;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseQuantityInput(string input, out int quantity)
+    {
+        quantity = 0;
+
+        var trimmed = input.Trim();
+        return int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.CurrentCulture, out quantity) && quantity > 0;
+    }
+
+    private bool TryResolveQuantityEditLine(out int lineIndex, out int currentQty, out string itemId, out string itemLabel, out string? error)
+    {
+        lineIndex = _quantityEditLineIndex;
+        currentQty = _quantityEditCurrentQty;
+        itemId = _quantityEditItemId;
+        itemLabel = _quantityEditItemLabel;
+        error = null;
+
+        if (lineIndex < 0 || string.IsNullOrWhiteSpace(itemId))
+        {
+            error = "No cart line selected for quantity update.";
+            return false;
+        }
+
+        var lines = _lastSnapshot?.Lines;
+        if (lines == null || lines.Length == 0)
+        {
+            error = "Cart is empty.";
+            return false;
+        }
+
+        var liveIndex = lineIndex;
+        if (liveIndex >= lines.Length ||
+            !string.Equals(lines[liveIndex].Id, itemId, StringComparison.OrdinalIgnoreCase))
+        {
+            var targetItemId = itemId;
+            liveIndex = Array.FindIndex(lines, line =>
+                !string.IsNullOrWhiteSpace(line.Id) &&
+                string.Equals(line.Id, targetItemId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (liveIndex < 0)
+        {
+            error = "Selected cart line no longer exists.";
+            return false;
+        }
+
+        var liveLine = lines[liveIndex];
+        var liveId = liveLine.Id?.Trim();
+        if (string.IsNullOrWhiteSpace(liveId))
+        {
+            error = "Selected cart line has no valid item id.";
+            return false;
+        }
+
+        lineIndex = liveIndex;
+        currentQty = Math.Max(1, liveLine.Qty);
+        itemId = liveId;
+        itemLabel = liveLine.Name ?? liveId;
+        return true;
+    }
+
     private void OnClearClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureCart())
@@ -980,10 +1600,16 @@ public partial class MainWindow : Window
             foreach (var line in snapshot.Lines)
             {
                 _lines.Add(new CartLineView(
-                    TranslateCatalogText(line.Name ?? string.Empty),
+                    line.Name ?? string.Empty,
                     line.Qty,
                     CurrencyFormatter.FormatCents(line.LineTotalCents)));
             }
+        }
+
+        if (CartQuantityOverlay.Visibility == Visibility.Visible &&
+            (snapshot.Lines == null || snapshot.Lines.Length == 0))
+        {
+            CloseCartQuantityOverlay();
         }
 
         var rawChange = snapshot.ChangeCents;
@@ -1107,20 +1733,32 @@ public partial class MainWindow : Window
 
         foreach (var category in allCategories)
         {
-            var translatedCategory = string.Equals(category, AllCategoriesToken, StringComparison.Ordinal)
+            var categoryLabel = string.Equals(category, AllCategoriesToken, StringComparison.Ordinal)
                 ? L("category.all")
-                : TranslateCatalogText(category);
+                : category;
 
             var button = new WpfButton
             {
                 Tag = category,
-                Content = translatedCategory,
+                Content = new TextBlock
+                {
+                    Text = categoryLabel,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    Width = CategoryButtonTextWrapWidth,
+                    LineHeight = 16,
+                    MaxHeight = 32,
+                    TextAlignment = TextAlignment.Center
+                },
                 Margin = new Thickness(4),
-                Width = 128,
-                Height = 48,
+                MinWidth = CategoryButtonMinWidth,
+                MaxWidth = CategoryButtonWrapWidth,
+                MinHeight = 48,
                 FontSize = 15,
-                Padding = new Thickness(8, 2, 8, 2),
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                Padding = new Thickness(10, 4, 10, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center
             };
 
             if (string.Equals(category, _activeCategory, StringComparison.OrdinalIgnoreCase))
@@ -1153,8 +1791,8 @@ public partial class MainWindow : Window
 
         foreach (var item in filteredCatalog)
         {
-            var translatedName = TranslateCatalogText(item.Name);
-            var translatedCategory = TranslateCatalogText(item.Category);
+            var itemName = item.Name;
+            var itemCategory = item.Category;
             var button = new WpfButton
             {
                 Tag = item.Id,
@@ -1162,8 +1800,8 @@ public partial class MainWindow : Window
                 Width = 160,
                 Height = 96,
                 FontSize = 16,
-                Content = $"{translatedName}\n{CurrencyFormatter.FormatCents(item.UnitCents)}",
-                ToolTip = translatedCategory
+                Content = $"{itemName}\n{CurrencyFormatter.FormatCents(item.UnitCents)}",
+                ToolTip = itemCategory
             };
 
             if (IsEditModeEnabled() && string.Equals(item.Id, _editingItemId, StringComparison.Ordinal))
@@ -1238,12 +1876,10 @@ public partial class MainWindow : Window
             .OrderBy(entry => entry.Category, StringComparer.OrdinalIgnoreCase)
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var translatedName = TranslateCatalogText(item.Name);
-            var translatedCategory = TranslateCatalogText(item.Category);
             EditorItemsListBox.Items.Add(new ListBoxItem
             {
                 Tag = item.Id,
-                Content = $"{translatedName} ({translatedCategory}) - {CurrencyFormatter.FormatCents(item.UnitCents)}",
+                Content = $"{item.Name} ({item.Category}) - {CurrencyFormatter.FormatCents(item.UnitCents)}",
                 Padding = new Thickness(6)
             });
         }
@@ -1651,11 +2287,6 @@ public partial class MainWindow : Window
         }
 
         Application.Current.Resources[key] = new SolidColorBrush(color);
-    }
-
-    private string TranslateCatalogText(string text)
-    {
-        return _runtimeTranslator.TranslateCatalogText(text, _settings.Language);
     }
 
     private string L(string key)

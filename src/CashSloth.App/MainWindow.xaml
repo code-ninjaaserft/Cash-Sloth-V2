@@ -6,18 +6,19 @@
         Closing="OnWindowClosing">
   <Grid Margin="16">
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
+      <RowDefinition x:Name="ToolbarRowDefinition" Height="240" />
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="760" />
+      <ColumnDefinition Width="660" />
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
-    <Border Grid.Row="0"
+    <Border x:Name="ToolbarBorder"
+            Grid.Row="0"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             BorderBrush="{DynamicResource AppControlBorderBrush}"
@@ -26,11 +27,16 @@
             Padding="8"
             Margin="0,0,0,10"
             Background="{DynamicResource AppSurfaceBrush}">
-      <TabControl x:Name="ToolbarTabControl" BorderThickness="0" Background="Transparent">
+      <TabControl x:Name="ToolbarTabControl"
+                  BorderThickness="0"
+                  Background="Transparent"
+                  PreviewMouseLeftButtonDown="OnToolbarTabPreviewMouseLeftButtonDown"
+                  SelectionChanged="OnToolbarTabSelectionChanged">
         <TabItem Header="Settings">
           <WrapPanel VerticalAlignment="Center" Margin="0,4,0,0">
             <TextBlock Text="Language" FontSize="14" FontWeight="SemiBold" Margin="0,0,8,0" VerticalAlignment="Center" />
             <ComboBox x:Name="LanguageComboBox"
+                      Style="{StaticResource TopBarComboBoxStyle}"
                       Width="190"
                       Height="34"
                       Margin="0,0,14,0"
@@ -41,6 +47,7 @@
 
             <TextBlock Text="Currency" FontSize="14" FontWeight="SemiBold" Margin="0,0,8,0" VerticalAlignment="Center" />
             <ComboBox x:Name="CurrencyComboBox"
+                      Style="{StaticResource TopBarComboBoxStyle}"
                       Width="130"
                       Height="34"
                       Margin="0,0,14,0"
@@ -51,6 +58,7 @@
 
             <TextBlock Text="UI Color" FontSize="14" FontWeight="SemiBold" Margin="0,0,8,0" VerticalAlignment="Center" />
             <ComboBox x:Name="ThemeComboBox"
+                      Style="{StaticResource TopBarComboBoxStyle}"
                       Width="140"
                       Height="34"
                       VerticalContentAlignment="Center"
@@ -61,6 +69,9 @@
         </TabItem>
 
         <TabItem Header="Presets">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled"
+                        PanningMode="VerticalOnly">
           <Grid Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="2*" />
@@ -76,6 +87,7 @@
               <StackPanel>
                 <TextBlock Text="Local presets" FontWeight="SemiBold" Margin="0,0,0,6" />
                 <ComboBox x:Name="LocalPresetComboBox"
+                          Style="{StaticResource TopBarComboBoxStyle}"
                           Height="34"
                           DisplayMemberPath="Label"
                           SelectedValuePath="Value" />
@@ -122,7 +134,8 @@
                          ToolTip="Override preset name" />
 
                 <WrapPanel Margin="0,8,0,0">
-                  <Button Content="Import online preset" Width="180" Height="34" Click="OnImportOnlinePresetClick" />
+                  <Button x:Name="ImportOnlinePresetButton" Content="Import online preset" Width="180" Height="34" Click="OnImportOnlinePresetClick" />
+                  <Button x:Name="UploadPresetButton" Content="Upload active preset" Width="170" Height="34" Margin="6,0,0,0" Click="OnUploadPresetClick" />
                   <CheckBox x:Name="SetImportedPresetActiveCheckBox"
                             Content="Set active"
                             Margin="12,8,0,0"
@@ -137,6 +150,97 @@
               </StackPanel>
             </Border>
           </Grid>
+          </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Accounts">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled"
+                        PanningMode="VerticalOnly">
+          <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="2*" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    BorderBrush="{DynamicResource AppControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel>
+                <TextBlock Text="Session" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBlock x:Name="CurrentUserTextBlock" Text="Not signed in" Margin="0,0,0,8" />
+
+                <TextBlock Text="Username" Margin="0,2,0,2" />
+                <TextBox x:Name="LoginUsernameTextBox"
+                         Height="34"
+                         VerticalContentAlignment="Center" />
+
+                <TextBlock Text="Password" Margin="0,8,0,2" />
+                <PasswordBox x:Name="LoginPasswordBox"
+                             Height="34"
+                             VerticalContentAlignment="Center" />
+
+                <WrapPanel Margin="0,8,0,0">
+                  <Button x:Name="LoginButton" Content="Login" Width="110" Height="34" Click="OnLoginClick" />
+                  <Button x:Name="LogoutButton" Content="Logout" Width="110" Height="34" Margin="6,0,0,0" Click="OnLogoutClick" />
+                </WrapPanel>
+                <Button x:Name="LocalAdminRecoveryButton"
+                        Content="Local admin recovery"
+                        Width="170"
+                        Height="34"
+                        Margin="0,8,0,0"
+                        Click="OnLocalAdminRecoveryClick" />
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2"
+                    BorderBrush="{DynamicResource AppControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8">
+              <StackPanel>
+                <TextBlock Text="Account management (Admin)" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <ListBox x:Name="AccountsListBox"
+                         Height="130"
+                         SelectionChanged="OnAccountSelectionChanged" />
+                <Button x:Name="RefreshAccountsButton"
+                        Content="Refresh accounts"
+                        Width="140"
+                        Height="34"
+                        Margin="0,8,0,0"
+                        Click="OnRefreshAccountsClick" />
+
+                <TextBlock Text="Username" Margin="0,10,0,2" />
+                <TextBox x:Name="AccountUsernameTextBox"
+                         Height="34"
+                         VerticalContentAlignment="Center" />
+
+                <TextBlock Text="Password (set/change)" Margin="0,8,0,2" />
+                <PasswordBox x:Name="AccountPasswordBox"
+                             Height="34"
+                             VerticalContentAlignment="Center" />
+
+                <TextBlock Text="Role" Margin="0,8,0,2" />
+                <ComboBox x:Name="AccountRoleComboBox"
+                          Style="{StaticResource TopBarComboBoxStyle}"
+                          Height="34" />
+
+                <CheckBox x:Name="AccountEnabledCheckBox"
+                          Content="Enabled"
+                          Margin="0,8,0,0"
+                          IsChecked="True" />
+
+                <WrapPanel Margin="0,8,0,0">
+                  <Button x:Name="SaveAccountButton" Content="Save account" Width="130" Height="34" Click="OnSaveAccountClick" />
+                  <Button x:Name="DeleteAccountButton" Content="Delete account" Width="130" Height="34" Margin="6,0,0,0" Click="OnDeleteAccountClick" />
+                </WrapPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+          </ScrollViewer>
         </TabItem>
       </TabControl>
     </Border>
@@ -183,7 +287,7 @@
 
         <Grid Grid.Row="1">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="132" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="10" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
@@ -225,18 +329,35 @@
       </Grid>
     </GroupBox>
 
-    <GroupBox Grid.Row="1" Grid.Column="1" Header="Cart">
+    <GroupBox Grid.Row="1" Grid.Column="1" Header="Cart" Margin="4,0,0,0">
       <DataGrid x:Name="CartLinesGrid"
                 AutoGenerateColumns="False"
                 CanUserAddRows="False"
                 IsReadOnly="True"
+                FontSize="20"
+                RowHeight="56"
+                ColumnHeaderHeight="52"
+                AlternationCount="1000000"
                 SelectionMode="Single"
                 SelectionUnit="FullRow"
-                ScrollViewer.PanningMode="Both">
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                ScrollViewer.PanningMode="VerticalOnly">
         <DataGrid.Columns>
           <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="*" />
-          <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="70" />
-          <DataGridTextColumn Header="Line Total" Binding="{Binding LineTotalDisplay}" Width="140" />
+          <DataGridTemplateColumn Header="Qty" Width="120">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <Button Content="{Binding Quantity}"
+                        Tag="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex}"
+                        FontSize="20"
+                        Width="92"
+                        Height="44"
+                        Padding="6,2"
+                        Click="OnCartQuantityClick" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTextColumn Header="Line Total" Binding="{Binding LineTotalDisplay}" Width="190" />
         </DataGrid.Columns>
       </DataGrid>
     </GroupBox>
@@ -248,13 +369,13 @@
       </Grid.RowDefinitions>
 
       <StackPanel Grid.Row="0" Orientation="Horizontal">
-        <Button Content="Remove Selected" Width="160" Height="38" Click="OnRemoveSelectedClick" />
-        <Button Content="Clear" Width="100" Height="38" Margin="8,0,0,0" Click="OnClearClick" />
+        <Button Content="Remove Selected" Width="190" Height="44" FontSize="16" Click="OnRemoveSelectedClick" />
+        <Button Content="Clear" Width="120" Height="44" FontSize="16" Margin="8,0,0,0" Click="OnClearClick" />
 
         <Separator Margin="16,0,16,0" Width="1" />
 
-        <Button Content="Open Customer Display" Width="200" Height="38" Click="OnOpenCustomerDisplayClick" />
-        <Button Content="Close Customer Display" Width="200" Height="38" Margin="6,0,0,0" Click="OnCloseCustomerDisplayClick" />
+        <Button Content="Open Customer Display" Width="220" Height="44" FontSize="16" Click="OnOpenCustomerDisplayClick" />
+        <Button Content="Close Customer Display" Width="220" Height="44" FontSize="16" Margin="6,0,0,0" Click="OnCloseCustomerDisplayClick" />
       </StackPanel>
 
       <WrapPanel x:Name="GivenButtonsPanel" Grid.Row="1" Margin="0,10,0,0" VerticalAlignment="Center">
@@ -566,6 +687,65 @@
           <WrapPanel Grid.Row="2" Margin="0,12,0,0">
             <Button Content="Create" Width="120" Height="40" FontSize="15" Click="OnCreateCategoryClick" />
             <Button Content="Cancel" Width="120" Height="40" FontSize="15" Margin="8,0,0,0" Click="OnCloseAddCategoryOverlayClick" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <Border x:Name="CartQuantityOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="5"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="45"
+            Background="#77000000"
+            Visibility="Collapsed">
+      <Border Width="480"
+              Padding="14"
+              Background="{DynamicResource AppSurfaceBrush}"
+              BorderBrush="{DynamicResource AppControlBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Set Quantity"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       DockPanel.Dock="Left" />
+            <Button Content="X"
+                    Width="42"
+                    Height="42"
+                    FontSize="16"
+                    HorizontalAlignment="Right"
+                    DockPanel.Dock="Right"
+                    Click="OnCloseCartQuantityOverlayClick" />
+          </DockPanel>
+
+          <TextBlock x:Name="CartQuantityItemText"
+                     Grid.Row="1"
+                     FontSize="16"
+                     Margin="0,0,0,8"
+                     Text="Item" />
+
+          <TextBox x:Name="CartQuantityTextBox"
+                   Grid.Row="2"
+                   Height="44"
+                   FontSize="20"
+                   VerticalContentAlignment="Center"
+                   ToolTip="Enter quantity (e.g. 45)" />
+
+          <WrapPanel Grid.Row="3" Margin="0,12,0,0">
+            <Button Content="Apply" Width="120" Height="42" FontSize="16" Click="OnApplyCartQuantityClick" />
+            <Button Content="Cancel" Width="120" Height="42" FontSize="16" Margin="8,0,0,0" Click="OnCloseCartQuantityOverlayClick" />
           </WrapPanel>
         </Grid>
       </Border>

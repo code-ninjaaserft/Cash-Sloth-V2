@@ -6,7 +6,6 @@ namespace CashSloth.App;
 public partial class CustomerDisplayWindow : Window
 {
     private readonly ObservableCollection<CartLineView> _lines = new();
-    private readonly RuntimeTranslator _runtimeTranslator = new();
     private UiLanguage _language = AppSettings.Default.Language;
 
     public CustomerDisplayWindow()
@@ -40,7 +39,7 @@ public partial class CustomerDisplayWindow : Window
             foreach (var line in snapshot.Lines)
             {
                 _lines.Add(new CartLineView(
-                    _runtimeTranslator.TranslateCatalogText(line.Name ?? string.Empty, _language),
+                    line.Name ?? string.Empty,
                     line.Qty,
                     CurrencyFormatter.FormatCents(line.LineTotalCents)));
             }

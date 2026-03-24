@@ -36,7 +36,13 @@ internal sealed record AppSettings(UiLanguage Language, UiCurrency Currency, UiT
     internal static AppSettings Default { get; } = new(UiLanguage.EnglishUk, UiCurrency.Chf, UiThemeMode.System);
 }
 
-internal sealed record UiOption<T>(T Value, string Label);
+internal sealed record UiOption<T>(T Value, string Label)
+{
+    public override string ToString()
+    {
+        return Label;
+    }
+}
 
 internal sealed class AppSettingsStore
 {

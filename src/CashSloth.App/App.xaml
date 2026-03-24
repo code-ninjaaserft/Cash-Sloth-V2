@@ -40,13 +40,37 @@
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="12,4,12,4" />
-      <Style.Triggers>
-        <Trigger Property="IsSelected" Value="True">
-          <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
-          <Setter Property="FontWeight" Value="SemiBold" />
-        </Trigger>
-      </Style.Triggers>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabItem}">
+            <Border x:Name="TabBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}"
+                    Margin="0,0,6,0">
+              <ContentPresenter ContentSource="Header"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                RecognizesAccessKey="True" />
+            </Border>
+
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AppCategorySelectionBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.65" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style TargetType="{x:Type Button}">
@@ -90,15 +114,84 @@
       </Style.Triggers>
     </Style>
 
+    <Style x:Key="TopBarComboBoxStyle" TargetType="{x:Type ComboBox}">
+      <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="8,0,28,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ComboBox}">
+            <Grid>
+              <ToggleButton x:Name="MainButton"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                            Focusable="False"
+                            ClickMode="Press">
+                <Grid>
+                  <ContentPresenter Margin="{TemplateBinding Padding}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding SelectionBoxItem}"
+                                    ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                    ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+
+                  <Path Width="10"
+                        Height="6"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,10,0"
+                        Fill="{DynamicResource AppForegroundBrush}"
+                        Data="M 0 0 L 5 6 L 10 0 Z" />
+                </Grid>
+              </ToggleButton>
+
+              <Popup x:Name="PART_Popup"
+                     Placement="Bottom"
+                     IsOpen="{TemplateBinding IsDropDownOpen}"
+                     AllowsTransparency="True"
+                     Focusable="False"
+                     PopupAnimation="Slide">
+                <Border x:Name="PopupBorder"
+                        Margin="0,2,0,0"
+                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                        Background="{DynamicResource AppControlBackgroundBrush}"
+                        BorderBrush="{DynamicResource AppControlBorderBrush}"
+                        BorderThickness="1">
+                  <ScrollViewer CanContentScroll="True" SnapsToDevicePixels="True">
+                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.7" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style TargetType="{x:Type ListBox}">
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
     <Style TargetType="{x:Type ListBoxItem}">
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Style.Triggers>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
