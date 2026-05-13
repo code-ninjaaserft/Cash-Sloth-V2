@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 
 namespace CashSloth.App;
@@ -31,6 +32,47 @@ internal sealed class OnlinePresetProvider
         {
             var json = _httpClient.GetStringAsync(uri).GetAwaiter().GetResult();
             return TryParsePresetJson(json, out preset, out error);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    internal bool TryUploadPreset(string url, AssortmentPresetDocument preset, out string? error)
+    {
+        if (preset.Items == null || preset.Items.Length == 0)
+        {
+            error = "Preset JSON does not contain valid items.";
+            return false;
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        {
+            error = "Preset URL must be a valid HTTP or HTTPS URL.";
+            return false;
+        }
+
+        try
+        {
+            var payload = JsonSerializer.Serialize(preset, _jsonOptions);
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            using var response = _httpClient.PostAsync(uri, content).GetAwaiter().GetResult();
+            if (response.IsSuccessStatusCode)
+            {
+                error = null;
+                return true;
+            }
+
+            var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            var trimmedBody = body?.Trim();
+            var detail = string.IsNullOrWhiteSpace(trimmedBody)
+                ? string.Empty
+                : $": {trimmedBody[..Math.Min(trimmedBody.Length, 240)]}";
+            error = $"Server responded {(int)response.StatusCode} {response.ReasonPhrase}{detail}";
+            return false;
         }
         catch (Exception ex)
         {

@@ -418,7 +418,31 @@ public partial class MainWindow : Window
             return;
         }
 
-        StatusText.Text = $"Upload endpoint for preset '{presetId}' is not wired yet. Authentication and role checks are active.";
+        var url = OnlinePresetUrlTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            StatusText.Text = L("status.preset_url_required");
+            return;
+        }
+
+        if (!_assortmentStore.TryGetPresetDocument(presetId, out var preset, out var presetError) || preset == null)
+        {
+            StatusText.Text = Lf("status.preset_upload_failed", presetError ?? string.Empty);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(OnlinePresetNameTextBox.Text))
+        {
+            preset = preset with { Name = OnlinePresetNameTextBox.Text.Trim() };
+        }
+
+        if (!_onlinePresetProvider.TryUploadPreset(url, preset, out var uploadError))
+        {
+            StatusText.Text = Lf("status.preset_upload_failed", uploadError ?? string.Empty);
+            return;
+        }
+
+        StatusText.Text = Lf("status.preset_uploaded", preset.Name);
     }
 
     private void InitializeAuthUi()

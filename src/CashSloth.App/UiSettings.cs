@@ -326,7 +326,9 @@ internal static class UiLocalizer
         ["status.preset_url_required"] = new("Preset URL is required.", "Preset-URL ist erforderlich.", "L'URL du preset est requise.", "URL preset ei necessaria."),
         ["status.preset_import_failed"] = new("Online preset import failed: {0}", "Online-Preset-Import fehlgeschlagen: {0}", "Import de preset en ligne echoue: {0}", "Import preset online buca reussiu: {0}"),
         ["status.preset_imported"] = new("Online preset '{0}' imported.", "Online-Preset '{0}' importiert.", "Preset en ligne '{0}' importe.", "Preset online '{0}' importaus."),
-        ["status.preset_imported_and_switched"] = new("Online preset '{0}' imported and activated.", "Online-Preset '{0}' importiert und aktiviert.", "Preset en ligne '{0}' importe et active.", "Preset online '{0}' importa e activaus.")
+        ["status.preset_imported_and_switched"] = new("Online preset '{0}' imported and activated.", "Online-Preset '{0}' importiert und aktiviert.", "Preset en ligne '{0}' importe et active.", "Preset online '{0}' importa e activaus."),
+        ["status.preset_upload_failed"] = new("Online preset upload failed: {0}", "Online-Preset-Upload fehlgeschlagen: {0}", "Upload de preset en ligne echoue: {0}", "Upload preset online buca reussiu: {0}"),
+        ["status.preset_uploaded"] = new("Online preset '{0}' uploaded.", "Online-Preset '{0}' hochgeladen.", "Preset en ligne '{0}' televerse.", "Preset online '{0}' cargaus ensi.")
     };
 
     private static readonly IReadOnlyDictionary<string, string> LiteralLookup = BuildLiteralLookup();

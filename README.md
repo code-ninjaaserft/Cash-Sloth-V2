@@ -17,7 +17,8 @@ The design is layered: **Core (C++) -> C-API -> WPF (.NET) via P/Invoke**. The c
 |- src/
 |  |- CashSloth.App/
 |  |- CashSloth.Core/
-|  `- CashSloth.CoreApi/
+|  |- CashSloth.CoreApi/
+|  `- CashSloth.PresetApi/
 |- tests/
 |  |- CashSloth.App.Tests/
 |  `- CashSloth.Core.Tests/
@@ -57,6 +58,7 @@ The MVP stack is functional end-to-end:
 - Core C-API supports catalog load/export, cart lifecycle, line add/remove/clear, totals, and payment given/change.
 - WPF POS supports product/category selection, cart rendering, tender helpers, and customer display.
 - Catalog edit mode supports add/edit/delete for products and categories (cart is reset after catalog changes).
+- Preset web backend scaffold is available in `src/CashSloth.PresetApi` (SQLite + HTTP endpoints).
 - Native contract tests cover version, catalog, cart, and payment behavior via CTest.
 
 ## Roadmap
@@ -74,9 +76,7 @@ Current planning targets: **QEN-GV** (`2026-03-14`) and **Z'Ämme ässe** (`2026
 1. [ ] Run packaged-output smoke rehearsal and capture final QEN-GV sign-off notes.
 2. [x] Maintain a concrete MVP acceptance checklist for QEN-GV (see `docs/QEN_GV_MVP_ACCEPTANCE_CHECKLIST.md`).
 3. [x] Define baseline roadmap phases for the Z'Ämme ässe milestone (see `docs/ROADMAP.md`).
-4. [ ] Start persistence/preset implementation handoff for the Z'Ämme ässe phase.
-
-> Barcode scanning, database persistence, and preset management are later milestones and are **not** scaffolded here yet.
+4. [ ] Add optional "remote-first" preset mode in `CashSloth.App` that consumes `CashSloth.PresetApi` directly for list/load/save/delete.
 
 ## License
 MIT. See the `LICENSE` file.

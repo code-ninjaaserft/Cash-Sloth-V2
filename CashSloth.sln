@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CashSloth.App", "src\\CashSloth.App\\CashSloth.App.csproj", "{4FD5B73B-3C05-4189-BBDE-B45B18F331FE}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CashSloth.PresetApi", "src\\CashSloth.PresetApi\\CashSloth.PresetApi.csproj", "{A48D3D2B-2A22-472D-A9A4-EF6149B55796}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CashSloth.App.Tests", "tests\CashSloth.App.Tests\CashSloth.App.Tests.csproj", "{26BB0D54-50BD-4381-9C5F-3C0E42BB6E98}"
@@ -31,6 +33,18 @@ Global
 		{4FD5B73B-3C05-4189-BBDE-B45B18F331FE}.Release|x64.Build.0 = Release|Any CPU
 		{4FD5B73B-3C05-4189-BBDE-B45B18F331FE}.Release|x86.ActiveCfg = Release|Any CPU
 		{4FD5B73B-3C05-4189-BBDE-B45B18F331FE}.Release|x86.Build.0 = Release|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Debug|x64.Build.0 = Debug|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Debug|x86.Build.0 = Debug|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Release|x64.ActiveCfg = Release|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Release|x64.Build.0 = Release|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Release|x86.ActiveCfg = Release|Any CPU
+		{A48D3D2B-2A22-472D-A9A4-EF6149B55796}.Release|x86.Build.0 = Release|Any CPU
 		{26BB0D54-50BD-4381-9C5F-3C0E42BB6E98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{26BB0D54-50BD-4381-9C5F-3C0E42BB6E98}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{26BB0D54-50BD-4381-9C5F-3C0E42BB6E98}.Debug|x64.ActiveCfg = Debug|Any CPU

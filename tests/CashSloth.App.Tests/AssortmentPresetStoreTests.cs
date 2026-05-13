@@ -246,6 +246,42 @@ public sealed class AssortmentPresetStoreTests
         }
     }
 
+    [Fact]
+    public void CanReadPresetDocumentForUpload()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var jsonPath = Path.Combine(tempDir, "assortment.presets.json");
+            var sqlitePath = Path.Combine(tempDir, "assortment.presets.sqlite3");
+            var store = new AssortmentPresetStore(jsonPath, sqlitePath);
+
+            var defaultCatalog = new List<CatalogItemEditor>
+            {
+                new("COFFEE", "Coffee", 500, "Hot Drinks")
+            };
+
+            Assert.True(store.TrySave(defaultCatalog, Array.Empty<string>(), out var initialSaveError), initialSaveError);
+
+            var weekendCatalog = new List<CatalogItemEditor>
+            {
+                new("WAFFLE", "Waffle", 700, "Weekend")
+            };
+
+            Assert.True(store.TryUpsertPreset("weekend", "Weekend", weekendCatalog, Array.Empty<string>(), false, out var upsertError), upsertError);
+            Assert.True(store.TryGetPresetDocument("weekend", out var preset, out var getError), getError);
+            Assert.NotNull(preset);
+            Assert.Equal("WEEKEND", AssortmentPresetStore.NormalizePresetId(preset!.Id));
+            Assert.Equal("Weekend", preset.Name);
+            Assert.Single(preset.Items);
+            Assert.Equal("WAFFLE", preset.Items[0].Id);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
     private static AssortmentStoreDocument BuildLegacyDocument()
     {
         return new AssortmentStoreDocument(

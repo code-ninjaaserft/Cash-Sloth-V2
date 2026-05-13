@@ -76,6 +76,32 @@ internal sealed class AssortmentPresetStore
         return TryBuildCatalogFromDocument(document, normalizedPresetId, out catalog, out extraCategories, out error);
     }
 
+    internal bool TryGetPresetDocument(string presetId, out AssortmentPresetDocument? preset, out string? error)
+    {
+        preset = null;
+
+        var normalizedPresetId = NormalizePresetId(presetId);
+        if (string.IsNullOrWhiteSpace(normalizedPresetId))
+        {
+            error = "Preset id must not be empty.";
+            return false;
+        }
+
+        if (!TryLoadDocument(out var document, out error) || document == null)
+        {
+            return false;
+        }
+
+        if (!TryResolvePreset(document, normalizedPresetId, out var resolvedPreset, out error))
+        {
+            return false;
+        }
+
+        preset = resolvedPreset;
+        error = null;
+        return true;
+    }
+
     internal bool TryGetPresetSummaries(out List<AssortmentPresetSummary> summaries, out string? error)
     {
         summaries = new List<AssortmentPresetSummary>();
