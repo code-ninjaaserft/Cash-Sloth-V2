@@ -119,13 +119,24 @@
                     CornerRadius="4"
                     Padding="8">
               <StackPanel>
-                <TextBlock Text="Online preset import" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBlock Text="Online presets" FontWeight="SemiBold" Margin="0,0,0,6" />
 
-                <TextBlock Text="Preset URL" Margin="0,2,0,2" />
+                <TextBlock Text="Preset server URL" Margin="0,2,0,2" />
                 <TextBox x:Name="OnlinePresetUrlTextBox"
                          Height="34"
                          VerticalContentAlignment="Center"
-                         ToolTip="Preset JSON URL (https://...)" />
+                         ToolTip="Preset server base URL (https://...)" />
+
+                <WrapPanel Margin="0,8,0,0">
+                  <Button x:Name="RefreshOnlinePresetListButton" Content="Load online presets" Width="170" Height="34" Click="OnRefreshOnlinePresetListClick" />
+                </WrapPanel>
+
+                <TextBlock Text="Online preset list" Margin="0,8,0,2" />
+                <ComboBox x:Name="OnlinePresetComboBox"
+                          Style="{StaticResource TopBarComboBoxStyle}"
+                          Height="34"
+                          DisplayMemberPath="Label"
+                          SelectedValuePath="Value" />
 
                 <TextBlock Text="Optional preset name" Margin="0,8,0,2" />
                 <TextBox x:Name="OnlinePresetNameTextBox"
@@ -134,7 +145,7 @@
                          ToolTip="Override preset name" />
 
                 <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="ImportOnlinePresetButton" Content="Import online preset" Width="180" Height="34" Click="OnImportOnlinePresetClick" />
+                  <Button x:Name="ImportOnlinePresetButton" Content="Import selected online preset" Width="210" Height="34" Click="OnImportOnlinePresetClick" />
                   <Button x:Name="UploadPresetButton" Content="Upload active preset" Width="170" Height="34" Margin="6,0,0,0" Click="OnUploadPresetClick" />
                   <CheckBox x:Name="SetImportedPresetActiveCheckBox"
                             Content="Set active"
@@ -143,7 +154,7 @@
                             IsChecked="False" />
                 </WrapPanel>
 
-                <TextBlock Text="Supports preset JSON and store JSON with presets."
+                <TextBlock Text="Load list from server and import by selection."
                            Margin="0,8,0,0"
                            FontSize="12"
                            Opacity="0.8" />

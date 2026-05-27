@@ -40,6 +40,94 @@ internal sealed class OnlinePresetProvider
         }
     }
 
+    internal bool TryDownloadPresetSummaries(string serverUrl, out List<AssortmentPresetSummary> summaries, out string? error)
+    {
+        summaries = new List<AssortmentPresetSummary>();
+
+        if (!TryBuildApiUri(serverUrl, "api/presets", out var uri, out error))
+        {
+            return false;
+        }
+
+        try
+        {
+            var json = _httpClient.GetStringAsync(uri).GetAwaiter().GetResult();
+            var store = JsonSerializer.Deserialize<AssortmentStoreDocument>(json, _jsonOptions);
+            if (store?.Presets is not { Length: > 0 })
+            {
+                error = "Online preset store has no presets.";
+                return false;
+            }
+
+            var activePresetId = AssortmentPresetStore.NormalizePresetId(store.ActivePresetId);
+            summaries = store.Presets
+                .Where(existing => !string.IsNullOrWhiteSpace(existing.Id))
+                .OrderBy(existing => existing.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(existing => existing.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(existing =>
+                {
+                    var normalizedId = AssortmentPresetStore.NormalizePresetId(existing.Id);
+                    var name = string.IsNullOrWhiteSpace(existing.Name) ? normalizedId : existing.Name.Trim();
+                    var isActive = string.Equals(normalizedId, activePresetId, StringComparison.OrdinalIgnoreCase);
+                    var itemCount = existing.Items?.Length ?? 0;
+                    return new AssortmentPresetSummary(normalizedId, name, isActive, itemCount);
+                })
+                .ToList();
+
+            if (summaries.Count == 0)
+            {
+                error = "Online preset store has no valid presets.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    internal bool TryDownloadPresetById(string serverUrl, string presetId, out AssortmentPresetDocument? preset, out string? error)
+    {
+        preset = null;
+
+        var normalizedPresetId = AssortmentPresetStore.NormalizePresetId(presetId);
+        if (string.IsNullOrWhiteSpace(normalizedPresetId))
+        {
+            error = "Preset id must not be empty.";
+            return false;
+        }
+
+        if (!TryBuildApiUri(serverUrl, $"api/presets/{Uri.EscapeDataString(normalizedPresetId)}", out var uri, out error))
+        {
+            return false;
+        }
+
+        try
+        {
+            var json = _httpClient.GetStringAsync(uri).GetAwaiter().GetResult();
+            return TryParsePresetJson(json, out preset, out error);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    internal bool TryUploadPresetToServer(string serverUrl, AssortmentPresetDocument preset, out string? error)
+    {
+        if (!TryBuildApiUri(serverUrl, "api/presets/upload", out var uri, out error))
+        {
+            return false;
+        }
+
+        return TryUploadPreset(uri.ToString(), preset, out error);
+    }
+
     internal bool TryUploadPreset(string url, AssortmentPresetDocument preset, out string? error)
     {
         if (preset.Items == null || preset.Items.Length == 0)
@@ -148,6 +236,28 @@ internal sealed class OnlinePresetProvider
         }
 
         return TryParseLoosePreset(json, out preset, out error);
+    }
+
+    private static bool TryBuildApiUri(string serverUrl, string relativePath, out Uri uri, out string? error)
+    {
+        uri = default!;
+
+        if (!Uri.TryCreate(serverUrl?.Trim(), UriKind.Absolute, out var baseUri) ||
+            (baseUri.Scheme != Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttp))
+        {
+            error = "Preset server URL must be a valid HTTP or HTTPS URL.";
+            return false;
+        }
+
+        var root = baseUri.ToString();
+        if (!root.EndsWith("/", StringComparison.Ordinal))
+        {
+            root += "/";
+        }
+
+        uri = new Uri(new Uri(root), relativePath.TrimStart('/'));
+        error = null;
+        return true;
     }
 
     private static bool TryParseLoosePreset(string json, out AssortmentPresetDocument? preset, out string? error)

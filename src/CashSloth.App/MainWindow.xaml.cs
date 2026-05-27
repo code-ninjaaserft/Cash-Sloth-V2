@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private string _activePresetId = DefaultPresetSelection;
     private AuthSessionUser? _currentUser;
     private List<AuthAccountSummary> _accountSummaries = new();
+    private List<AssortmentPresetSummary> _onlinePresetSummaries = new();
     private int _quantityEditLineIndex = -1;
     private int _quantityEditCurrentQty;
     private string _quantityEditItemId = string.Empty;
@@ -255,6 +256,16 @@ public partial class MainWindow : Window
         RefreshPresetControls(ResolveSelectedPresetId());
     }
 
+    private void OnRefreshOnlinePresetListClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureRole(UserRole.Downloader, "import online presets"))
+        {
+            return;
+        }
+
+        RefreshOnlinePresetControls(preferredPresetId: ResolveSelectedOnlinePresetId(), updateStatusOnSuccess: true);
+    }
+
     private void OnSwitchPresetClick(object sender, RoutedEventArgs e)
     {
         var presetId = ResolveSelectedPresetId();
@@ -355,14 +366,21 @@ public partial class MainWindow : Window
             return;
         }
 
-        var url = OnlinePresetUrlTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(url))
+        var serverUrl = OnlinePresetUrlTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(serverUrl))
         {
-            StatusText.Text = L("status.preset_url_required");
+            StatusText.Text = L("status.preset_server_url_required");
             return;
         }
 
-        if (!_onlinePresetProvider.TryDownloadPreset(url, out var downloadedPreset, out var downloadError) || downloadedPreset == null)
+        var onlinePresetId = ResolveSelectedOnlinePresetId();
+        if (string.IsNullOrWhiteSpace(onlinePresetId))
+        {
+            StatusText.Text = L("status.online_preset_select_required");
+            return;
+        }
+
+        if (!_onlinePresetProvider.TryDownloadPresetById(serverUrl, onlinePresetId, out var downloadedPreset, out var downloadError) || downloadedPreset == null)
         {
             StatusText.Text = Lf("status.preset_import_failed", downloadError ?? string.Empty);
             return;
@@ -401,6 +419,7 @@ public partial class MainWindow : Window
         }
 
         RefreshPresetControls(persistedPresetId);
+        RefreshOnlinePresetControls(preferredPresetId: onlinePresetId, updateStatusOnSuccess: false);
         OnlinePresetNameTextBox.Text = string.Empty;
     }
 
@@ -418,10 +437,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var url = OnlinePresetUrlTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(url))
+        var serverUrl = OnlinePresetUrlTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(serverUrl))
         {
-            StatusText.Text = L("status.preset_url_required");
+            StatusText.Text = L("status.preset_server_url_required");
             return;
         }
 
@@ -436,13 +455,14 @@ public partial class MainWindow : Window
             preset = preset with { Name = OnlinePresetNameTextBox.Text.Trim() };
         }
 
-        if (!_onlinePresetProvider.TryUploadPreset(url, preset, out var uploadError))
+        if (!_onlinePresetProvider.TryUploadPresetToServer(serverUrl, preset, out var uploadError))
         {
             StatusText.Text = Lf("status.preset_upload_failed", uploadError ?? string.Empty);
             return;
         }
 
         StatusText.Text = Lf("status.preset_uploaded", preset.Name);
+        RefreshOnlinePresetControls(preferredPresetId: AssortmentPresetStore.NormalizePresetId(preset.Id), updateStatusOnSuccess: false);
     }
 
     private void InitializeAuthUi()
@@ -504,6 +524,8 @@ public partial class MainWindow : Window
         var canManage = HasRole(UserRole.Admin);
 
         OnlinePresetUrlTextBox.IsEnabled = canDownload;
+        RefreshOnlinePresetListButton.IsEnabled = canDownload;
+        OnlinePresetComboBox.IsEnabled = canDownload;
         OnlinePresetNameTextBox.IsEnabled = canDownload;
         SetImportedPresetActiveCheckBox.IsEnabled = canDownload;
         ImportOnlinePresetButton.IsEnabled = canDownload;
@@ -2105,6 +2127,77 @@ public partial class MainWindow : Window
         return candidate;
     }
 
+    private string? ResolveSelectedOnlinePresetId()
+    {
+        if (OnlinePresetComboBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
+        {
+            return null;
+        }
+
+        return AssortmentPresetStore.NormalizePresetId(selected);
+    }
+
+    private void RefreshOnlinePresetControls(string? preferredPresetId = null, bool updateStatusOnSuccess = false)
+    {
+        var serverUrl = OnlinePresetUrlTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(serverUrl))
+        {
+            _onlinePresetSummaries = new List<AssortmentPresetSummary>();
+            RenderOnlinePresetOptions(preferredPresetId);
+            return;
+        }
+
+        if (!_onlinePresetProvider.TryDownloadPresetSummaries(serverUrl, out var summaries, out var error))
+        {
+            _onlinePresetSummaries = new List<AssortmentPresetSummary>();
+            RenderOnlinePresetOptions(preferredPresetId);
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                StatusText.Text = Lf("status.online_presets_load_failed", error);
+            }
+
+            return;
+        }
+
+        _onlinePresetSummaries = summaries;
+        RenderOnlinePresetOptions(preferredPresetId);
+
+        if (updateStatusOnSuccess)
+        {
+            StatusText.Text = Lf("status.online_presets_loaded", _onlinePresetSummaries.Count);
+        }
+    }
+
+    private void RenderOnlinePresetOptions(string? preferredPresetId = null)
+    {
+        if (_onlinePresetSummaries.Count == 0)
+        {
+            OnlinePresetComboBox.ItemsSource = Array.Empty<UiOption<string>>();
+            OnlinePresetComboBox.SelectedValue = null;
+            return;
+        }
+
+        var normalizedPreferred = string.IsNullOrWhiteSpace(preferredPresetId)
+            ? _onlinePresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? _onlinePresetSummaries[0].Id
+            : AssortmentPresetStore.NormalizePresetId(preferredPresetId);
+
+        var options = _onlinePresetSummaries
+            .Select(summary => new UiOption<string>(summary.Id, BuildOnlinePresetOptionLabel(summary)))
+            .ToArray();
+
+        OnlinePresetComboBox.ItemsSource = options;
+        OnlinePresetComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
+            ? normalizedPreferred
+            : (_onlinePresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? options[0].Value);
+    }
+
+    private string BuildOnlinePresetOptionLabel(AssortmentPresetSummary summary)
+    {
+        return summary.IsActive
+            ? Lf("preset.option_online_active_format", summary.Name, summary.ItemCount)
+            : Lf("preset.option_online_format", summary.Name, summary.ItemCount);
+    }
+
     private string? ResolveSelectedPresetId()
     {
         if (LocalPresetComboBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
@@ -2210,6 +2303,7 @@ public partial class MainWindow : Window
         Title = L("main.title");
         TranslateLiterals(this);
         RefreshPresetControls(_activePresetId);
+        RenderOnlinePresetOptions(ResolveSelectedOnlinePresetId());
         RenderCategoryButtons();
         RefreshEditorList();
         RenderProductButtons();

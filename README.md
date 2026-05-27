@@ -1,6 +1,6 @@
 # Cash-Sloth v2
 
-_Last updated: 2026-03-06_
+_Last updated: 2026-05-13_
 
 ## What is this?
 Cash-Sloth v2 is a modular rebuild of the Cash-Sloth point-of-sale tooling, with a native C++ core and a WPF front end.
@@ -77,6 +77,17 @@ Current planning targets: **QEN-GV** (`2026-03-14`) and **Z'Ämme ässe** (`2026
 2. [x] Maintain a concrete MVP acceptance checklist for QEN-GV (see `docs/QEN_GV_MVP_ACCEPTANCE_CHECKLIST.md`).
 3. [x] Define baseline roadmap phases for the Z'Ämme ässe milestone (see `docs/ROADMAP.md`).
 4. [ ] Add optional "remote-first" preset mode in `CashSloth.App` that consumes `CashSloth.PresetApi` directly for list/load/save/delete.
+
+## Requested follow-up features
+- [ ] Add a **restaurant/festwirtschaft mode** with mobile ordering: customers can place orders from their phones, and those orders are sent to the host POS device for processing.
+- [ ] Add **mobile payment support** for that flow, including phone-based **RFID/NFC** and **TWINT** handling, with payment results synced back to the host POS.
+- [ ] Add **history + statistics** views for completed sales.
+- [ ] Add a **showcase mode** that is excluded from history and not counted in statistics.
+- [ ] Add an **event mode** where multiple users can open multiple tills/registers (for example, Kasse 1 and Kasse 2) under one event and sell in parallel.
+- [ ] Add event analytics that can be filtered by **single register/user** and **overall event totals**.
+- [ ] Add an in-app **tutorial/onboarding** flow.
+- [ ] Add a **startup animation** for app launch.
+- [ ] Apply **UI polish** items, including a proper window icon at the top left near minimize/maximize/close controls on Windows.
 
 ## License
 MIT. See the `LICENSE` file.
