@@ -1,6 +1,6 @@
 # Cash-Sloth v2 Roadmap
 
-_Last updated: 2026-03-08_
+_Last updated: 2026-05-27_
 
 ## Architecture summary
 Cash-Sloth v2 is layered as **Core (C++) -> C-API (C ABI) -> WPF (.NET)**. The C++ core owns business rules and data shaping, the C-API exposes a stable boundary (JSON/`char*` with explicit free patterns), and the WPF app focuses on workflow and presentation.
@@ -31,34 +31,34 @@ Focus: stabilize the shipped MVP workflows for event readiness.
    - Tag-based packaging produced release artifact (`v2.0.0`) on 2026-03-06.
    - Packaged-output smoke run notes and final team sign-off are still open.
 
-### Z'Ämme ässe (Aug 2026)
-Focus: operational readiness, data persistence, and UI polish.
+### Mobile Event Rollout (Early Jul 2026)
+**Target date:** 2026-07-05  
+Focus: complete mobile event operations (ordering + payment), user/account rollout, and reporting polish.
 
-**Roadmap cadence (toward 2026-08-22)**
-1. **2026-03-16 to 2026-03-31: planning freeze**
-   - Finalize persistence scope and data ownership boundaries.
-   - Write technical design notes for preset model + migration approach.
-   - Kickoff progress: SQLite scaffold + migration baseline documented in `docs/AUGUST_PERSISTENCE_KICKOFF.md`.
-2. **2026-04-01 to 2026-05-15: presets & persistence**
-   - Implement preset model with load/save path.
-   - Add SQLite schema versioning with deterministic migrations.
-3. **2026-05-16 to 2026-06-20: input readiness**
-   - Deliver barcode wedge pipeline and parsing tests.
-   - Decide if optional Android-Bluetooth hook remains in or out.
-4. **2026-06-21 to 2026-07-20: UI/customer display polish**
-   - Dynamic button layout and text fitting for operational catalogs.
-   - Customer display readability and refresh smoothing.
-5. **2026-07-21 to 2026-08-10: rehearsal + freeze**
-   - Execute event rehearsal checklist.
-   - Apply bug-fix-only freeze for remaining blockers.
-6. **2026-08-11 to 2026-08-22: final buffer**
-   - Contingency buffer for blockers and packaging fixes.
-   - Final sign-off package for event usage.
+**Roadmap cadence (toward 2026-07-05)**
+1. **2026-05-27 to 2026-06-05: mobile ordering host flow**
+   - Restaurant/festwirtschaft mode with Android order submission.
+   - Host device intake and order processing workflow.
+2. **2026-06-06 to 2026-06-12: payment + tip support**
+   - Android payment flow with RFID/NFC + TWINT sync to host POS.
+   - Tip handling in checkout/statistics model.
+3. **2026-06-13 to 2026-06-19: accounts on all devices**
+   - Self-service account creation on any device.
+   - Admin-only user controls (role promotion and controlled user management).
+4. **2026-06-20 to 2026-06-26: history/statistics + showcase boundaries**
+   - History and statistics for completed real sales.
+   - Showcase mode excluded from history and statistics.
+5. **2026-06-27 to 2026-07-02: event multi-register analytics**
+   - Event mode with parallel tills/users (for example Kasse 1 / Kasse 2).
+   - Event analytics by register/user and aggregated event totals.
+6. **2026-07-03 to 2026-07-05: UX finish**
+   - Tutorial/onboarding flow.
+   - Startup animation and targeted UI polish (including window icon behavior on Windows).
 
-**August milestone DoD**
-- Presets and persistence are stable, migration-safe, and documented.
-- Input handling is test-covered and resilient for event operation.
-- UI/customer display polish and rehearsal checklist are completed.
+**Milestone DoD (2026-07-05)**
+- Android app scope is order send + payment to host POS.
+- No parallel legacy input track remains in active planning.
+- Tip/account/event/statistics features are integrated and documented.
 
 ## Related docs
 - [Milestones](MILESTONES.md)

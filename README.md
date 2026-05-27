@@ -1,6 +1,6 @@
 # Cash-Sloth v2
 
-_Last updated: 2026-05-13_
+_Last updated: 2026-05-27_
 
 ## What is this?
 Cash-Sloth v2 is a modular rebuild of the Cash-Sloth point-of-sale tooling, with a native C++ core and a WPF front end.
@@ -63,7 +63,7 @@ The MVP stack is functional end-to-end:
 
 ## Roadmap
 Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
-Current planning targets: **QEN-GV** (`2026-03-14`) and **Z'Ämme ässe** (`2026-08-22`).
+Current planning targets: **QEN-GV** (`2026-03-14`, closeout) and **Mobile Event Rollout** (`2026-07-05`).
 
 ## Local cleanup
 - Remove build and IDE artifacts: `pwsh ./tools/clean_local_artifacts.ps1`
@@ -75,12 +75,17 @@ Current planning targets: **QEN-GV** (`2026-03-14`) and **Z'Ämme ässe** (`2026
 ## Next steps
 1. [ ] Run packaged-output smoke rehearsal and capture final QEN-GV sign-off notes.
 2. [x] Maintain a concrete MVP acceptance checklist for QEN-GV (see `docs/QEN_GV_MVP_ACCEPTANCE_CHECKLIST.md`).
-3. [x] Define baseline roadmap phases for the Z'Ämme ässe milestone (see `docs/ROADMAP.md`).
+3. [x] Define baseline roadmap phases for the active milestone set (see `docs/ROADMAP.md`).
 4. [ ] Add optional "remote-first" preset mode in `CashSloth.App` that consumes `CashSloth.PresetApi` directly for list/load/save/delete.
 
-## Requested follow-up features
+## Current milestone focus (through early Jul 2026)
+- Target date: `2026-07-05`
 - [ ] Add a **restaurant/festwirtschaft mode** with mobile ordering: customers can place orders from their phones, and those orders are sent to the host POS device for processing.
+- [ ] Keep the Android app scope focused on **order send + payment to host POS**.
 - [ ] Add **mobile payment support** for that flow, including phone-based **RFID/NFC** and **TWINT** handling, with payment results synced back to the host POS.
+- [ ] Add **trinkgeld (tip) features** for card/mobile payments and cash flows.
+- [ ] Add an **account system for all devices/users**: account creation is not limited to one operator.
+- [ ] Keep **admin-only user controls** (for example role promotion and controlled user management/export).
 - [ ] Add **history + statistics** views for completed sales.
 - [ ] Add a **showcase mode** that is excluded from history and not counted in statistics.
 - [ ] Add an **event mode** where multiple users can open multiple tills/registers (for example, Kasse 1 and Kasse 2) under one event and sell in parallel.

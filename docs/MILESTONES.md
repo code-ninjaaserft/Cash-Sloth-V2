@@ -1,6 +1,6 @@
 # Milestones
 
-_Last updated: 2026-03-08_
+_Last updated: 2026-05-27_
 
 Dates are planning targets and can be adjusted as scope is refined.
 
@@ -20,20 +20,25 @@ Dates are planning targets and can be adjusted as scope is refined.
 - [ ] Packaged-output smoke run and team sign-off are still open.
 
 **Out of scope**
-- Full persistence rollout, barcode workflows, and deployment hardening.
+- Full persistence rollout and deployment hardening beyond MVP closeout.
 
-## Z'Ämme ässe (Aug 2026)
-**Target date:** 2026-08-22  
-**Status:** In progress (kickoff started, as of 2026-03-08)
+## Mobile Event Rollout (Early Jul 2026)
+**Target date:** 2026-07-05  
+**Status:** Active milestone (as of 2026-05-27)
 
 **Definition**
-- Deliver persistence, presets, input pipeline, and UI polish needed for operations.
+- Deliver mobile ordering/payment operations, account rollout, and event reporting needed for real usage.
 
-**Planning baseline (Mar -> Aug 2026)**
-- Presets + persistence (schema, load/save, migration strategy).
-- Input readiness (barcode wedge path + tests).
-- UI and customer display polish, then rehearsal/freeze checklist.
-- Kickoff completed: SQLite persistence scaffolding + JSON fallback bridge (`docs/AUGUST_PERSISTENCE_KICKOFF.md`).
+**Current scope (through early Jul 2026)**
+- Restaurant/festwirtschaft mode with Android order send to host POS.
+- Android payment flow (RFID/NFC + TWINT) and synced payment state.
+- Trinkgeld support in payment flow and reporting.
+- Account creation from all devices/users.
+- Admin-only user controls (role promotion and controlled user management/export).
+- History + statistics with showcase mode excluded from both history and aggregation.
+- Event mode with multi-register parallel selling and per-register + total event analytics.
+- Tutorial/onboarding, startup animation, and selected UI polish.
 
 **Out of scope**
-- Experimental integrations that are not required for event readiness.
+- Legacy alternative input track from earlier planning.
+- Experimental integrations not required for the 2026-07-05 target.
