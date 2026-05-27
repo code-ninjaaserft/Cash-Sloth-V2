@@ -55,6 +55,59 @@ public sealed class AuthSqliteStoreTests
     }
 
     [Fact]
+    public void SelfRegistrationCreatesNormalUser()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var sqlitePath = Path.Combine(tempDir, "accounts.sqlite3");
+            var store = new AuthSqliteStore(sqlitePath);
+            Assert.True(store.TryEnsureInitialized(out _, out var initError), initError);
+
+            var registerOk = store.TryRegisterAccount("otto", "pw-123", out var registerError);
+            Assert.True(registerOk, registerError);
+
+            var authOk = store.TryAuthenticate("otto", "pw-123", out var session, out var authError);
+            Assert.True(authOk, authError);
+            Assert.NotNull(session);
+            Assert.Equal(UserRole.User, session!.Role);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    [Fact]
+    public void SelfRegistrationCannotOverwriteExistingAccount()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var sqlitePath = Path.Combine(tempDir, "accounts.sqlite3");
+            var store = new AuthSqliteStore(sqlitePath);
+            Assert.True(store.TryEnsureInitialized(out _, out var initError), initError);
+
+            Assert.True(store.TryRegisterAccount("otto", "first-password", out var firstError), firstError);
+
+            var secondOk = store.TryRegisterAccount("otto", "second-password", out var secondError);
+            Assert.False(secondOk);
+            Assert.Contains("already exists", secondError, StringComparison.OrdinalIgnoreCase);
+
+            var authOk = store.TryAuthenticate("otto", "first-password", out var session, out var authError);
+            Assert.True(authOk, authError);
+            Assert.Equal(UserRole.User, session!.Role);
+
+            var secondAuthOk = store.TryAuthenticate("otto", "second-password", out _, out _);
+            Assert.False(secondAuthOk);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    [Fact]
     public void CannotDeleteLastEnabledAdmin()
     {
         var tempDir = CreateTempDir();

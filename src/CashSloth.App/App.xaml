@@ -77,6 +77,41 @@
       <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
       <Setter Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type Button}">
+            <Border x:Name="ButtonBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True" />
+            </Border>
+
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource AppSelectionBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppSelectionForegroundBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource AppControlBackgroundBrush}" />
+                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AppControlBorderBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource AppForegroundBrush}" />
+                <Setter Property="Opacity" Value="0.45" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style TargetType="{x:Type CheckBox}">

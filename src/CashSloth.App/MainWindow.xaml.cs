@@ -6,9 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Media3D;
 using Screen = System.Windows.Forms.Screen;
 using WpfButton = System.Windows.Controls.Button;
 
@@ -18,11 +16,13 @@ public partial class MainWindow : Window
 {
     private const string AllCategoriesToken = "__ALL__";
     private const string DefaultPresetSelection = "DEFAULT";
-    private const double ToolbarExpandedHeight = 240;
     private const double ToolbarCollapsedHeight = 66;
     private const double CategoryButtonMinWidth = 128;
     private const double CategoryButtonWrapWidth = 176;
     private const double CategoryButtonTextWrapWidth = 156;
+    private const string DefaultEventName = "Default Event";
+    private const string DefaultRegisterName = "Kasse 1";
+    private const string DefaultOperatorName = "local";
 
     private readonly ObservableCollection<CartLineView> _lines = new();
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly FxRateProvider _fxRateProvider = new();
     private readonly OnlinePresetProvider _onlinePresetProvider = new();
     private readonly AuthSqliteStore _authStore = new();
+    private readonly SaleHistorySqliteStore _saleHistoryStore = new();
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
@@ -51,7 +52,6 @@ public partial class MainWindow : Window
     private int _quantityEditCurrentQty;
     private string _quantityEditItemId = string.Empty;
     private string _quantityEditItemLabel = string.Empty;
-    private bool _isToolbarCollapsed;
 
     public MainWindow()
     {
@@ -65,6 +65,7 @@ public partial class MainWindow : Window
         RenderProductButtons();
         RefreshPresetControls();
         InitializeAuthUi();
+        InitializeSalesUi();
         ApplyLocalizedLiterals();
         RefreshQuickTenderButtons();
         UpdateSummaryValues(0, 0, 0);
@@ -175,26 +176,6 @@ public partial class MainWindow : Window
         RenderProductButtons();
     }
 
-    private void OnToolbarTabPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not TabControl tabControl)
-        {
-            return;
-        }
-
-        var clickedTab = FindToolbarTabFromSource(e.OriginalSource, tabControl);
-        if (clickedTab == null)
-        {
-            return;
-        }
-
-        if (ReferenceEquals(tabControl.SelectedItem, clickedTab))
-        {
-            SetToolbarCollapsed(!_isToolbarCollapsed);
-            e.Handled = true;
-        }
-    }
-
     private void OnToolbarTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!ReferenceEquals(e.Source, ToolbarTabControl))
@@ -202,53 +183,20 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_isToolbarCollapsed)
-        {
-            SetToolbarCollapsed(false);
-        }
+        ApplyWorkspaceTabLayout();
     }
 
-    private void SetToolbarCollapsed(bool collapsed)
+    private void ApplyWorkspaceTabLayout()
     {
-        _isToolbarCollapsed = collapsed;
-        ToolbarRowDefinition.Height = new GridLength(collapsed ? ToolbarCollapsedHeight : ToolbarExpandedHeight);
-    }
-
-    private static TabItem? FindToolbarTabFromSource(object? originalSource, TabControl tabControl)
-    {
-        if (originalSource is not DependencyObject source)
-        {
-            return null;
-        }
-
-        DependencyObject? current = source;
-        while (current != null)
-        {
-            if (current is TabItem tabItem &&
-                ReferenceEquals(ItemsControl.ItemsControlFromItemContainer(tabItem), tabControl))
-            {
-                return tabItem;
-            }
-
-            current = GetVisualOrLogicalParent(current);
-        }
-
-        return null;
-    }
-
-    private static DependencyObject? GetVisualOrLogicalParent(DependencyObject child)
-    {
-        if (child is Visual or Visual3D)
-        {
-            return VisualTreeHelper.GetParent(child);
-        }
-
-        return child switch
-        {
-            FrameworkElement frameworkElement => frameworkElement.Parent,
-            FrameworkContentElement contentElement => contentElement.Parent,
-            _ => null
-        };
+        var isShopTab = ReferenceEquals(ToolbarTabControl.SelectedItem, ShopTab);
+        ToolbarRowDefinition.Height = isShopTab
+            ? new GridLength(ToolbarCollapsedHeight)
+            : new GridLength(1, GridUnitType.Star);
+        ShopContentRowDefinition.Height = isShopTab
+            ? new GridLength(1, GridUnitType.Star)
+            : new GridLength(0);
+        CheckoutControlsRowDefinition.Height = isShopTab ? GridLength.Auto : new GridLength(0);
+        SummaryRowDefinition.Height = isShopTab ? GridLength.Auto : new GridLength(0);
     }
 
     private void OnRefreshPresetListClick(object sender, RoutedEventArgs e)
@@ -258,7 +206,7 @@ public partial class MainWindow : Window
 
     private void OnRefreshOnlinePresetListClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.Downloader, "import online presets"))
+        if (!EnsureRole(UserRole.User, "import online presets"))
         {
             return;
         }
@@ -361,7 +309,7 @@ public partial class MainWindow : Window
 
     private void OnImportOnlinePresetClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.Downloader, "import online presets"))
+        if (!EnsureRole(UserRole.User, "import online presets"))
         {
             return;
         }
@@ -468,7 +416,7 @@ public partial class MainWindow : Window
     private void InitializeAuthUi()
     {
         AccountRoleComboBox.ItemsSource = Enum.GetValues<UserRole>();
-        AccountRoleComboBox.SelectedItem = UserRole.Downloader;
+        AccountRoleComboBox.SelectedItem = UserRole.User;
         AccountEnabledCheckBox.IsChecked = true;
 
         if (!_authStore.TryEnsureInitialized(out var seededDefaultAdmin, out var initError))
@@ -519,7 +467,7 @@ public partial class MainWindow : Window
         LogoutButton.IsEnabled = isSignedIn;
         LocalAdminRecoveryButton.IsEnabled = !isSignedIn;
 
-        var canDownload = HasRole(UserRole.Downloader);
+        var canDownload = HasRole(UserRole.User);
         var canUpload = HasRole(UserRole.Creator);
         var canManage = HasRole(UserRole.Admin);
 
@@ -600,6 +548,59 @@ public partial class MainWindow : Window
         StatusText.Text = $"Local admin recovery unlocked this laptop as '{recoveredUser.Username}'.";
     }
 
+    private void OnCreateAccountClick(object sender, RoutedEventArgs e)
+    {
+        var username = SelfRegisterUsernameTextBox.Text.Trim();
+        var password = SelfRegisterPasswordBox.Password;
+        var confirmPassword = SelfRegisterConfirmPasswordBox.Password;
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            StatusText.Text = "Username is required to create an account.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            StatusText.Text = "Password is required to create an account.";
+            return;
+        }
+
+        if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
+        {
+            StatusText.Text = "Password confirmation does not match.";
+            return;
+        }
+
+        if (!_authStore.TryRegisterAccount(username, password, out var registerError))
+        {
+            StatusText.Text = $"Account creation failed: {registerError ?? "unknown error"}";
+            return;
+        }
+
+        SelfRegisterPasswordBox.Password = string.Empty;
+        SelfRegisterConfirmPasswordBox.Password = string.Empty;
+
+        if (_currentUser == null &&
+            _authStore.TryAuthenticate(username, password, out var createdUser, out _) &&
+            createdUser != null)
+        {
+            _currentUser = createdUser;
+            SelfRegisterUsernameTextBox.Text = string.Empty;
+            RefreshAuthUi(loadAccounts: true);
+            StatusText.Text = $"Account '{createdUser.Username}' created and signed in as User.";
+            return;
+        }
+
+        if (HasRole(UserRole.Admin))
+        {
+            _ = RefreshAccountsFromStore(updateStatusOnError: true);
+        }
+
+        SelfRegisterUsernameTextBox.Text = string.Empty;
+        StatusText.Text = $"Account '{username}' created as User. Admin promotion is required for higher roles.";
+    }
+
     private void OnRefreshAccountsClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.Admin, "manage accounts"))
@@ -644,7 +645,7 @@ public partial class MainWindow : Window
 
         if (AccountRoleComboBox.SelectedItem is not UserRole role)
         {
-            role = UserRole.Downloader;
+            role = UserRole.User;
         }
 
         var password = AccountPasswordBox.Password;
@@ -749,7 +750,7 @@ public partial class MainWindow : Window
         AccountsListBox.SelectedItem = null;
         ClearTextBox(AccountUsernameTextBox);
         AccountPasswordBox.Password = string.Empty;
-        AccountRoleComboBox.SelectedItem = UserRole.Downloader;
+        AccountRoleComboBox.SelectedItem = UserRole.User;
         AccountEnabledCheckBox.IsChecked = true;
     }
 
@@ -773,6 +774,234 @@ public partial class MainWindow : Window
     private bool HasRole(UserRole minimumRole)
     {
         return _currentUser != null && _currentUser.Role >= minimumRole;
+    }
+
+    private void InitializeSalesUi()
+    {
+        EventNameTextBox.Text = DefaultEventName;
+        RegisterNameTextBox.Text = DefaultRegisterName;
+        PaymentMethodComboBox.ItemsSource = new[] { "Cash", "Card", "RFID/NFC", "TWINT", "Mobile" };
+        PaymentMethodComboBox.SelectedIndex = 0;
+
+        if (!_saleHistoryStore.TryEnsureInitialized(out var initError))
+        {
+            StatusText.Text = $"Sale history initialization failed: {initError ?? "unknown error"}";
+            return;
+        }
+
+        RefreshSaleContextPreview();
+        RefreshSaleHistoryUi(updateStatusOnError: true);
+    }
+
+    private void OnCompleteSaleClick(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureCart())
+        {
+            return;
+        }
+
+        if (_lastSnapshot == null || _lastSnapshot.Lines == null || _lastSnapshot.Lines.Length == 0 || _lastSnapshot.TotalCents <= 0)
+        {
+            StatusText.Text = "Cart is empty. Add items before completing a sale.";
+            return;
+        }
+
+        if (!TryReadTipAmount(out var tipCents, out var tipError))
+        {
+            StatusText.Text = tipError ?? "Tip amount is invalid.";
+            RefreshSaleContextPreview();
+            return;
+        }
+
+        var saleTotalCents = _lastSnapshot.TotalCents + tipCents;
+        if (_lastSnapshot.GivenCents < saleTotalCents)
+        {
+            var missingCents = saleTotalCents - _lastSnapshot.GivenCents;
+            StatusText.Text = $"Payment is missing {CurrencyFormatter.FormatCents(missingCents)} including tip.";
+            RefreshSaleContextPreview();
+            return;
+        }
+
+        var changeCents = Math.Max(_lastSnapshot.GivenCents - saleTotalCents, 0);
+        var sale = new SaleHistoryRecord(
+            string.Empty,
+            DateTimeOffset.UtcNow,
+            NormalizeSaleText(EventNameTextBox.Text, DefaultEventName),
+            NormalizeSaleText(RegisterNameTextBox.Text, DefaultRegisterName),
+            _currentUser?.Username ?? DefaultOperatorName,
+            ResolveSelectedPaymentMethod(),
+            ShowcaseModeCheckBox.IsChecked == true,
+            _lastSnapshot.TotalCents,
+            tipCents,
+            saleTotalCents,
+            _lastSnapshot.GivenCents,
+            changeCents,
+            _lastSnapshot.Lines.Select(line => new SaleHistoryLine(
+                NormalizeSaleText(line.Id, "UNKNOWN"),
+                NormalizeSaleText(line.Name, line.Id ?? "UNKNOWN"),
+                line.UnitCents,
+                line.Qty,
+                line.LineTotalCents)).ToArray());
+
+        if (!_saleHistoryStore.TryRecordSale(sale, out var saleId, out var recordError))
+        {
+            StatusText.Text = $"Sale history save failed: {recordError ?? "unknown error"}";
+            return;
+        }
+
+        if (!TryCoreCall(NativeMethods.cs_cart_clear(_cart), "clear completed cart"))
+        {
+            StatusText.Text = $"Sale '{saleId}' saved, but cart could not be cleared.";
+            RefreshSaleHistoryUi(updateStatusOnError: true);
+            return;
+        }
+
+        if (!TryCoreCall(NativeMethods.cs_payment_set_given_cents(_cart, 0), "reset completed payment"))
+        {
+            StatusText.Text = $"Sale '{saleId}' saved, but payment amount could not be reset.";
+            RefreshSaleHistoryUi(updateStatusOnError: true);
+            return;
+        }
+
+        TipAmountTextBox.Text = string.Empty;
+        RefreshFromCoreJson();
+        RefreshSaleHistoryUi(updateStatusOnError: true);
+
+        StatusText.Text = sale.IsShowcase
+            ? $"Showcase sale '{saleId}' saved and excluded from statistics."
+            : $"Sale '{saleId}' completed.";
+    }
+
+    private void OnTipAmountChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshSaleContextPreview();
+    }
+
+    private void OnRefreshHistoryClick(object sender, RoutedEventArgs e)
+    {
+        RefreshSaleHistoryUi(updateStatusOnError: true);
+    }
+
+    private void OnHistoryFilterChanged(object sender, RoutedEventArgs e)
+    {
+        RefreshSaleHistoryUi(updateStatusOnError: true);
+    }
+
+    private void OnUseCurrentHistoryFiltersClick(object sender, RoutedEventArgs e)
+    {
+        HistoryEventFilterTextBox.Text = NormalizeSaleText(EventNameTextBox.Text, DefaultEventName);
+        HistoryRegisterFilterTextBox.Text = NormalizeSaleText(RegisterNameTextBox.Text, DefaultRegisterName);
+        HistoryUserFilterTextBox.Text = _currentUser?.Username ?? string.Empty;
+        RefreshSaleHistoryUi(updateStatusOnError: true);
+    }
+
+    private void RefreshSaleContextPreview()
+    {
+        var subtotalCents = _lastSnapshot?.TotalCents ?? 0;
+        if (!TryReadTipAmount(out var tipCents, out _))
+        {
+            SaleContextStatusText.Text = "Tip amount is invalid.";
+            return;
+        }
+
+        var totalWithTipCents = subtotalCents + tipCents;
+        var givenCents = _lastSnapshot?.GivenCents ?? 0;
+        var missingCents = Math.Max(totalWithTipCents - givenCents, 0);
+        var changeCents = Math.Max(givenCents - totalWithTipCents, 0);
+
+        if (missingCents > 0)
+        {
+            SaleContextStatusText.Text = $"Total incl. tip: {CurrencyFormatter.FormatCents(totalWithTipCents)} | Missing: {CurrencyFormatter.FormatCents(missingCents)}";
+            return;
+        }
+
+        SaleContextStatusText.Text = changeCents > 0
+            ? $"Total incl. tip: {CurrencyFormatter.FormatCents(totalWithTipCents)} | Change: {CurrencyFormatter.FormatCents(changeCents)}"
+            : $"Total incl. tip: {CurrencyFormatter.FormatCents(totalWithTipCents)}";
+    }
+
+    private void RefreshSaleHistoryUi(bool updateStatusOnError)
+    {
+        var includeShowcase = IncludeShowcaseHistoryCheckBox.IsChecked == true;
+        if (!_saleHistoryStore.TryListRecentSales(50, includeShowcase, out var summaries, out var listError))
+        {
+            HistoryListBox.ItemsSource = Array.Empty<SaleHistoryListItem>();
+            if (updateStatusOnError)
+            {
+                StatusText.Text = $"Sale history load failed: {listError ?? "unknown error"}";
+            }
+
+            return;
+        }
+
+        HistoryListBox.ItemsSource = summaries.Select(BuildSaleHistoryListItem).ToArray();
+
+        var filter = new SaleHistoryFilter(
+            TrimToNull(HistoryEventFilterTextBox.Text),
+            TrimToNull(HistoryRegisterFilterTextBox.Text),
+            TrimToNull(HistoryUserFilterTextBox.Text),
+            includeShowcase);
+
+        if (!_saleHistoryStore.TryGetStatistics(filter, out var stats, out var statsError))
+        {
+            if (updateStatusOnError)
+            {
+                StatusText.Text = $"Sale statistics load failed: {statsError ?? "unknown error"}";
+            }
+
+            return;
+        }
+
+        StatsSalesValueText.Text = stats.SaleCount.ToString(CultureInfo.CurrentCulture);
+        StatsSubtotalValueText.Text = CurrencyFormatter.FormatCents(stats.SubtotalCents);
+        StatsTipValueText.Text = CurrencyFormatter.FormatCents(stats.TipCents);
+        StatsTotalValueText.Text = CurrencyFormatter.FormatCents(stats.TotalCents);
+        StatsLinesValueText.Text = stats.LineCount.ToString(CultureInfo.CurrentCulture);
+    }
+
+    private SaleHistoryListItem BuildSaleHistoryListItem(SaleHistorySummary summary)
+    {
+        var localCompleted = summary.CompletedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+        var showcasePrefix = summary.IsShowcase ? "[Showcase] " : string.Empty;
+        var tipSuffix = summary.TipCents > 0 ? $" | Tip {CurrencyFormatter.FormatCents(summary.TipCents)}" : string.Empty;
+        var text = $"{showcasePrefix}{localCompleted} | {summary.EventName} / {summary.RegisterName} | {summary.OperatorUsername} | {summary.PaymentMethod} | {CurrencyFormatter.FormatCents(summary.TotalCents)}{tipSuffix} | {summary.LineCount} lines";
+        return new SaleHistoryListItem(text);
+    }
+
+    private bool TryReadTipAmount(out long tipCents, out string? error)
+    {
+        tipCents = 0;
+        error = null;
+
+        if (string.IsNullOrWhiteSpace(TipAmountTextBox.Text))
+        {
+            return true;
+        }
+
+        if (!TryParsePrice(TipAmountTextBox.Text, out tipCents))
+        {
+            error = "Tip must be a valid amount (e.g. 2.00).";
+            return false;
+        }
+
+        return true;
+    }
+
+    private string ResolveSelectedPaymentMethod()
+    {
+        return PaymentMethodComboBox.SelectedItem as string ?? "Cash";
+    }
+
+    private static string NormalizeSaleText(string? text, string fallback)
+    {
+        var normalized = text?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
+    }
+
+    private static string? TrimToNull(string? text)
+    {
+        var normalized = text?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
@@ -1325,32 +1554,88 @@ public partial class MainWindow : Window
             return;
         }
 
-        var lines = _lastSnapshot?.Lines;
-        if (lines == null || lineIndex < 0 || lineIndex >= lines.Length)
+        if (!TryResolveCartLineByIndex(lineIndex, out var resolvedLineIndex, out var currentQty, out var itemId, out var itemLabel, out var resolveError))
         {
-            StatusText.Text = "Cart lines are outdated. Please try again.";
+            StatusText.Text = resolveError ?? "Could not resolve cart line for quantity update.";
             return;
         }
 
-        var line = lines[lineIndex];
-        var itemId = line.Id?.Trim();
-        if (string.IsNullOrWhiteSpace(itemId))
-        {
-            StatusText.Text = "Selected cart line has no valid item id.";
-            return;
-        }
-
-        _quantityEditLineIndex = lineIndex;
-        _quantityEditCurrentQty = Math.Max(1, line.Qty);
+        _quantityEditLineIndex = resolvedLineIndex;
+        _quantityEditCurrentQty = currentQty;
         _quantityEditItemId = itemId;
-        _quantityEditItemLabel = line.Name ?? itemId;
+        _quantityEditItemLabel = itemLabel;
 
-        CartLinesGrid.SelectedIndex = lineIndex;
+        CartLinesGrid.SelectedIndex = resolvedLineIndex;
         CartQuantityItemText.Text = $"{_quantityEditItemLabel} (current: {_quantityEditCurrentQty})";
         CartQuantityTextBox.Text = _quantityEditCurrentQty.ToString(CultureInfo.CurrentCulture);
         CartQuantityOverlay.Visibility = Visibility.Visible;
         CartQuantityTextBox.Focus();
         CartQuantityTextBox.SelectAll();
+    }
+
+    private void OnDecreaseCartQuantityClick(object sender, RoutedEventArgs e)
+    {
+        ChangeCartLineQuantityFromButton(sender, -1);
+    }
+
+    private void OnIncreaseCartQuantityClick(object sender, RoutedEventArgs e)
+    {
+        ChangeCartLineQuantityFromButton(sender, 1);
+    }
+
+    private void ChangeCartLineQuantityFromButton(object sender, int delta)
+    {
+        if (!EnsureCart())
+        {
+            return;
+        }
+
+        if (!TryGetLineIndexFromSender(sender, out var requestedLineIndex))
+        {
+            return;
+        }
+
+        if (!TryResolveCartLineByIndex(requestedLineIndex, out var lineIndex, out var currentQty, out var itemId, out var itemLabel, out var resolveError))
+        {
+            StatusText.Text = resolveError ?? "Could not resolve cart line for quantity update.";
+            return;
+        }
+
+        var targetQty = currentQty + delta;
+        if (targetQty <= 0)
+        {
+            if (!TryCoreCall(NativeMethods.cs_cart_remove_line(_cart, lineIndex), "remove cart line"))
+            {
+                return;
+            }
+
+            RefreshFromCoreJson();
+            StatusText.Text = $"Removed '{itemLabel}'.";
+            return;
+        }
+
+        if (delta > 0)
+        {
+            if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, delta), "increase cart quantity"))
+            {
+                return;
+            }
+        }
+        else
+        {
+            if (!TryCoreCall(NativeMethods.cs_cart_remove_line(_cart, lineIndex), "decrease cart quantity"))
+            {
+                return;
+            }
+
+            if (!TryCoreCall(NativeMethods.cs_cart_add_item_by_id(_cart, itemId, targetQty), "restore decreased cart quantity"))
+            {
+                return;
+            }
+        }
+
+        RefreshFromCoreJson();
+        StatusText.Text = $"Quantity for '{itemLabel}' set to {targetQty}.";
     }
 
     private void OnApplyCartQuantityClick(object sender, RoutedEventArgs e)
@@ -1457,6 +1742,41 @@ public partial class MainWindow : Window
 
         var trimmed = input.Trim();
         return int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.CurrentCulture, out quantity) && quantity > 0;
+    }
+
+    private bool TryResolveCartLineByIndex(int requestedLineIndex, out int lineIndex, out int currentQty, out string itemId, out string itemLabel, out string? error)
+    {
+        lineIndex = requestedLineIndex;
+        currentQty = 0;
+        itemId = string.Empty;
+        itemLabel = string.Empty;
+        error = null;
+
+        var lines = _lastSnapshot?.Lines;
+        if (lines == null || lines.Length == 0)
+        {
+            error = "Cart is empty.";
+            return false;
+        }
+
+        if (requestedLineIndex < 0 || requestedLineIndex >= lines.Length)
+        {
+            error = "Cart lines are outdated. Please try again.";
+            return false;
+        }
+
+        var line = lines[requestedLineIndex];
+        var liveId = line.Id?.Trim();
+        if (string.IsNullOrWhiteSpace(liveId))
+        {
+            error = "Selected cart line has no valid item id.";
+            return false;
+        }
+
+        currentQty = Math.Max(1, line.Qty);
+        itemId = liveId;
+        itemLabel = line.Name ?? liveId;
+        return true;
     }
 
     private bool TryResolveQuantityEditLine(out int lineIndex, out int currentQty, out string itemId, out string itemLabel, out string? error)
@@ -1671,6 +1991,7 @@ public partial class MainWindow : Window
 
         _currentGivenCents = snapshot.GivenCents;
         _lastSnapshot = snapshot;
+        RefreshSaleContextPreview();
         _customerDisplayWindow?.Update(snapshot);
     }
 
@@ -2528,6 +2849,14 @@ public partial class MainWindow : Window
         window.Width = workingArea.Width / dpi.DpiScaleX;
         window.Height = workingArea.Height / dpi.DpiScaleY;
         window.WindowState = WindowState.Maximized;
+    }
+
+    private sealed record SaleHistoryListItem(string Text)
+    {
+        public override string ToString()
+        {
+            return Text;
+        }
     }
 }
 

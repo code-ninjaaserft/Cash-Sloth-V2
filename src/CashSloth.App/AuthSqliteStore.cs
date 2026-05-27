@@ -8,7 +8,7 @@ namespace CashSloth.App;
 
 internal enum UserRole
 {
-    Downloader = 0,
+    User = 0,
     Creator = 1,
     Admin = 2
 }
@@ -186,11 +186,7 @@ internal sealed class AuthSqliteStore
                 return false;
             }
 
-            if (!Enum.TryParse<UserRole>(roleText, true, out var role))
-            {
-                error = $"Invalid account role '{roleText}'.";
-                return false;
-            }
+            var role = ParseRole(roleText);
 
             user = new AuthSessionUser(resolvedUsername, role);
             return true;
@@ -228,14 +224,57 @@ internal sealed class AuthSqliteStore
                 var roleText = reader.GetString(1);
                 var isEnabled = reader.GetInt64(2) != 0;
 
-                if (!Enum.TryParse<UserRole>(roleText, true, out var role))
-                {
-                    role = UserRole.Downloader;
-                }
+                var role = ParseRole(roleText);
 
                 summaries.Add(new AuthAccountSummary(username, role, isEnabled));
             }
 
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    internal bool TryRegisterAccount(string username, string password, out string? error)
+    {
+        error = null;
+
+        var normalizedUsername = NormalizeUsername(username);
+        if (string.IsNullOrWhiteSpace(normalizedUsername))
+        {
+            error = "Username is required.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            error = "Password is required.";
+            return false;
+        }
+
+        if (!TryEnsureInitialized(out _, out error))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            if (ReadAccount(connection, transaction, normalizedUsername) != null)
+            {
+                error = $"Account '{normalizedUsername}' already exists.";
+                transaction.Rollback();
+                return false;
+            }
+
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            InsertAccount(connection, normalizedUsername, HashPassword(password), UserRole.User, true, now, now, transaction);
+            transaction.Commit();
             return true;
         }
         catch (Exception ex)
@@ -451,9 +490,7 @@ internal sealed class AuthSqliteStore
             return null;
         }
 
-        var storedRole = Enum.TryParse<UserRole>(reader.GetString(2), true, out var role)
-            ? role
-            : UserRole.Downloader;
+        var storedRole = ParseRole(reader.GetString(2));
         return new AuthAccountRow(
             reader.GetString(0),
             reader.GetString(1),
@@ -503,6 +540,18 @@ internal sealed class AuthSqliteStore
     private static string NormalizeUsername(string? username)
     {
         return username?.Trim() ?? string.Empty;
+    }
+
+    private static UserRole ParseRole(string roleText)
+    {
+        if (string.Equals(roleText, "Downloader", StringComparison.OrdinalIgnoreCase))
+        {
+            return UserRole.User;
+        }
+
+        return Enum.TryParse<UserRole>(roleText, true, out var role)
+            ? role
+            : UserRole.User;
     }
 
     private bool TryEnsureLocalAdminRecoveryTicket(out string? error)

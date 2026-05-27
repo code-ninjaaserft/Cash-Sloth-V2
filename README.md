@@ -58,7 +58,10 @@ The MVP stack is functional end-to-end:
 - Core C-API supports catalog load/export, cart lifecycle, line add/remove/clear, totals, and payment given/change.
 - WPF POS supports product/category selection, cart rendering, tender helpers, and customer display.
 - Catalog edit mode supports add/edit/delete for products and categories (cart is reset after catalog changes).
+- Accounts tab supports open self-registration as a normal `User`; only admins can promote roles or manage accounts.
 - Preset web backend scaffold is available in `src/CashSloth.PresetApi` (SQLite + HTTP endpoints).
+- WPF host can complete local sales into SQLite with event/register/user metadata, payment method, tip amount, recent history, and basic statistics.
+- Showcase sales can be recorded without appearing in default history/statistics unless explicitly included.
 - Native contract tests cover version, catalog, cart, and payment behavior via CTest.
 
 ## Roadmap
@@ -86,8 +89,8 @@ Current planning targets: **QEN-GV** (`2026-03-14`, closeout) and **Mobile Event
 - [ ] Add **trinkgeld (tip) features** for card/mobile payments and cash flows.
 - [ ] Add an **account system for all devices/users**: account creation is not limited to one operator.
 - [ ] Keep **admin-only user controls** (for example role promotion and controlled user management/export).
-- [ ] Add **history + statistics** views for completed sales.
-- [ ] Add a **showcase mode** that is excluded from history and not counted in statistics.
+- [x] Add **history + statistics** views for completed sales.
+- [x] Add a **showcase mode** that is excluded from default history/statistics.
 - [ ] Add an **event mode** where multiple users can open multiple tills/registers (for example, Kasse 1 and Kasse 2) under one event and sell in parallel.
 - [ ] Add event analytics that can be filtered by **single register/user** and **overall event totals**.
 - [ ] Add an in-app **tutorial/onboarding** flow.

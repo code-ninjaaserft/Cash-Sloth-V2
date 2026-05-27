@@ -10,5 +10,8 @@ Current MVP capabilities:
 - open/close customer display window (second screen)
 - edit mode for adding/updating/deleting products and categories
 - separate edit popups for adding items and managing categories (+ / X actions)
+- open self-registration for normal user accounts, with admin-only role promotion
 - persist assortment presets locally (SQLite + JSON snapshot)
 - import presets from HTTP/HTTPS URLs and upload active presets to a web endpoint
+- complete sales into local SQLite history with event/register/user metadata
+- track payment method, tips, showcase mode, recent sales, and basic statistics

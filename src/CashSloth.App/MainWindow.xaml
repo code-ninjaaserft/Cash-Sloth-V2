@@ -6,10 +6,10 @@
         Closing="OnWindowClosing">
   <Grid Margin="16">
     <Grid.RowDefinitions>
-      <RowDefinition x:Name="ToolbarRowDefinition" Height="240" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
+      <RowDefinition x:Name="ToolbarRowDefinition" Height="66" />
+      <RowDefinition x:Name="ShopContentRowDefinition" Height="*" />
+      <RowDefinition x:Name="CheckoutControlsRowDefinition" Height="Auto" />
+      <RowDefinition x:Name="SummaryRowDefinition" Height="Auto" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
@@ -30,9 +30,10 @@
       <TabControl x:Name="ToolbarTabControl"
                   BorderThickness="0"
                   Background="Transparent"
-                  PreviewMouseLeftButtonDown="OnToolbarTabPreviewMouseLeftButtonDown"
                   SelectionChanged="OnToolbarTabSelectionChanged">
-        <TabItem Header="Settings">
+        <TabItem x:Name="ShopTab" Header="Shop" />
+
+        <TabItem x:Name="SettingsTab" Header="Settings">
           <WrapPanel VerticalAlignment="Center" Margin="0,4,0,0">
             <TextBlock Text="Language" FontSize="14" FontWeight="SemiBold" Margin="0,0,8,0" VerticalAlignment="Center" />
             <ComboBox x:Name="LanguageComboBox"
@@ -68,11 +69,12 @@
           </WrapPanel>
         </TabItem>
 
-        <TabItem Header="Presets">
+        <TabItem x:Name="PresetsTab" Header="Presets">
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled"
                         PanningMode="VerticalOnly">
-          <Grid Margin="0,4,0,0">
+          <Grid Margin="0,4,0,0"
+                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="2*" />
               <ColumnDefinition Width="12" />
@@ -164,11 +166,12 @@
           </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Accounts">
+        <TabItem x:Name="AccountsTab" Header="Accounts">
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled"
                         PanningMode="VerticalOnly">
-          <Grid Margin="0,4,0,0">
+          <Grid Margin="0,4,0,0"
+                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="2*" />
               <ColumnDefinition Width="12" />
@@ -204,6 +207,38 @@
                         Height="34"
                         Margin="0,8,0,0"
                         Click="OnLocalAdminRecoveryClick" />
+
+                <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8"
+                        Margin="0,18,0,0">
+                  <StackPanel>
+                    <TextBlock Text="Create account" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                    <TextBlock Text="Username" Margin="0,2,0,2" />
+                    <TextBox x:Name="SelfRegisterUsernameTextBox"
+                             Height="34"
+                             VerticalContentAlignment="Center" />
+
+                    <TextBlock Text="Password" Margin="0,8,0,2" />
+                    <PasswordBox x:Name="SelfRegisterPasswordBox"
+                                 Height="34"
+                                 VerticalContentAlignment="Center" />
+
+                    <TextBlock Text="Confirm password" Margin="0,8,0,2" />
+                    <PasswordBox x:Name="SelfRegisterConfirmPasswordBox"
+                                 Height="34"
+                                 VerticalContentAlignment="Center" />
+
+                    <Button x:Name="CreateAccountButton"
+                            Content="Create normal user"
+                            Width="170"
+                            Height="34"
+                            Margin="0,10,0,0"
+                            Click="OnCreateAccountClick" />
+                  </StackPanel>
+                </Border>
               </StackPanel>
             </Border>
 
@@ -251,6 +286,169 @@
               </StackPanel>
             </Border>
           </Grid>
+          </ScrollViewer>
+        </TabItem>
+
+        <TabItem x:Name="EventTab" Header="Event">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled"
+                        PanningMode="VerticalOnly">
+            <Grid Margin="0,4,0,0"
+                  Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="3*" />
+              </Grid.ColumnDefinitions>
+
+              <Border Grid.Column="0"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <StackPanel>
+                  <TextBlock Text="Event context" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                  <TextBlock Text="Event name" Margin="0,2,0,2" />
+                  <TextBox x:Name="EventNameTextBox"
+                           Height="34"
+                           VerticalContentAlignment="Center"
+                           ToolTip="Event name for history and statistics" />
+
+                  <TextBlock Text="Register" Margin="0,8,0,2" />
+                  <TextBox x:Name="RegisterNameTextBox"
+                           Height="34"
+                           VerticalContentAlignment="Center"
+                           ToolTip="Register/till name (e.g. Kasse 1)" />
+
+                  <CheckBox x:Name="ShowcaseModeCheckBox"
+                            Content="Showcase mode (exclude from statistics)"
+                            Margin="0,10,0,0" />
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <StackPanel>
+                  <TextBlock Text="Checkout" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                  <TextBlock Text="Payment method" Margin="0,2,0,2" />
+                  <ComboBox x:Name="PaymentMethodComboBox"
+                            Style="{StaticResource TopBarComboBoxStyle}"
+                            Height="34" />
+
+                  <TextBlock Text="Tip amount" Margin="0,8,0,2" />
+                  <TextBox x:Name="TipAmountTextBox"
+                           Height="34"
+                           VerticalContentAlignment="Center"
+                           ToolTip="Optional tip amount"
+                           TextChanged="OnTipAmountChanged" />
+
+                  <TextBlock x:Name="SaleContextStatusText"
+                             Text="Cart total: CHF 0.00"
+                             Margin="0,8,0,0"
+                             FontSize="13"
+                             FontWeight="SemiBold" />
+
+                  <Button x:Name="CompleteSaleButton"
+                          Content="Complete sale"
+                          Width="150"
+                          Height="36"
+                          Margin="0,10,0,0"
+                          Click="OnCompleteSaleClick" />
+                </StackPanel>
+              </Border>
+            </Grid>
+          </ScrollViewer>
+        </TabItem>
+
+        <TabItem x:Name="HistoryTab" Header="History">
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled"
+                        PanningMode="VerticalOnly">
+            <Grid Margin="0,4,0,0"
+                  Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="2*" />
+              </Grid.ColumnDefinitions>
+
+              <Border Grid.Column="0"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <StackPanel>
+                  <TextBlock Text="Recent sales" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <ListBox x:Name="HistoryListBox"
+                           Height="150"
+                           FontSize="13"
+                           ScrollViewer.PanningMode="VerticalOnly" />
+
+                  <WrapPanel Margin="0,8,0,0">
+                    <Button x:Name="RefreshHistoryButton"
+                            Content="Refresh history"
+                            Width="140"
+                            Height="34"
+                            Click="OnRefreshHistoryClick" />
+                    <Button x:Name="UseCurrentHistoryFiltersButton"
+                            Content="Use current event"
+                            Width="150"
+                            Height="34"
+                            Margin="6,0,0,0"
+                            Click="OnUseCurrentHistoryFiltersClick" />
+                    <CheckBox x:Name="IncludeShowcaseHistoryCheckBox"
+                              Content="Include showcase"
+                              Margin="12,8,0,0"
+                              VerticalAlignment="Center"
+                              Checked="OnHistoryFilterChanged"
+                              Unchecked="OnHistoryFilterChanged" />
+                  </WrapPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <StackPanel>
+                  <TextBlock Text="Statistics filters" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                  <TextBlock Text="Event" Margin="0,2,0,2" />
+                  <TextBox x:Name="HistoryEventFilterTextBox"
+                           Height="30"
+                           VerticalContentAlignment="Center" />
+
+                  <TextBlock Text="Register" Margin="0,6,0,2" />
+                  <TextBox x:Name="HistoryRegisterFilterTextBox"
+                           Height="30"
+                           VerticalContentAlignment="Center" />
+
+                  <TextBlock Text="User" Margin="0,6,0,2" />
+                  <TextBox x:Name="HistoryUserFilterTextBox"
+                           Height="30"
+                           VerticalContentAlignment="Center" />
+
+                  <UniformGrid Columns="2" Margin="0,10,0,0">
+                    <TextBlock Text="Sales" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatsSalesValueText" Text="0" />
+                    <TextBlock Text="Subtotal" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatsSubtotalValueText" Text="CHF 0.00" />
+                    <TextBlock Text="Tips" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatsTipValueText" Text="CHF 0.00" />
+                    <TextBlock Text="Total" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatsTotalValueText" Text="CHF 0.00" />
+                    <TextBlock Text="Lines" FontWeight="SemiBold" />
+                    <TextBlock x:Name="StatsLinesValueText" Text="0" />
+                  </UniformGrid>
+                </StackPanel>
+              </Border>
+            </Grid>
           </ScrollViewer>
         </TabItem>
       </TabControl>
@@ -355,16 +553,39 @@
                 ScrollViewer.PanningMode="VerticalOnly">
         <DataGrid.Columns>
           <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="*" />
-          <DataGridTemplateColumn Header="Qty" Width="120">
+          <DataGridTemplateColumn Header="Qty" Width="190">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <Button Content="{Binding Quantity}"
-                        Tag="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex}"
-                        FontSize="20"
-                        Width="92"
-                        Height="44"
-                        Padding="6,2"
-                        Click="OnCartQuantityClick" />
+                <Grid Width="168" Height="44">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="44" />
+                  </Grid.ColumnDefinitions>
+                  <Button Grid.Column="0"
+                          Content="-"
+                          Tag="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex}"
+                          FontSize="22"
+                          FontWeight="SemiBold"
+                          Padding="0"
+                          ToolTip="Decrease quantity"
+                          Click="OnDecreaseCartQuantityClick" />
+                  <Button Grid.Column="1"
+                          Content="{Binding Quantity}"
+                          Tag="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex}"
+                          FontSize="20"
+                          Margin="4,0"
+                          Padding="6,2"
+                          Click="OnCartQuantityClick" />
+                  <Button Grid.Column="2"
+                          Content="+"
+                          Tag="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow}, Path=AlternationIndex}"
+                          FontSize="22"
+                          FontWeight="SemiBold"
+                          Padding="0"
+                          ToolTip="Increase quantity"
+                          Click="OnIncreaseCartQuantityClick" />
+                </Grid>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
@@ -382,6 +603,7 @@
       <StackPanel Grid.Row="0" Orientation="Horizontal">
         <Button Content="Remove Selected" Width="190" Height="44" FontSize="16" Click="OnRemoveSelectedClick" />
         <Button Content="Clear" Width="120" Height="44" FontSize="16" Margin="8,0,0,0" Click="OnClearClick" />
+        <Button Content="Complete Sale" Width="150" Height="44" FontSize="16" Margin="8,0,0,0" Click="OnCompleteSaleClick" />
 
         <Separator Margin="16,0,16,0" Width="1" />
 

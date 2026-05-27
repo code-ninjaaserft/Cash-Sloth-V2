@@ -48,6 +48,7 @@ Focus: complete mobile event operations (ordering + payment), user/account rollo
 4. **2026-06-20 to 2026-06-26: history/statistics + showcase boundaries**
    - History and statistics for completed real sales.
    - Showcase mode excluded from history and statistics.
+   - Implemented local WPF host slice on 2026-05-27: completed-sale SQLite history, event/register/user metadata, tip totals, and showcase exclusion by default.
 5. **2026-06-27 to 2026-07-02: event multi-register analytics**
    - Event mode with parallel tills/users (for example Kasse 1 / Kasse 2).
    - Event analytics by register/user and aggregated event totals.

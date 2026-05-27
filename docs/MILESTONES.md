@@ -39,6 +39,10 @@ Dates are planning targets and can be adjusted as scope is refined.
 - Event mode with multi-register parallel selling and per-register + total event analytics.
 - Tutorial/onboarding, startup animation, and selected UI polish.
 
+**Implemented local host slice (2026-05-27)**
+- Completed sales can be saved locally with event/register/user metadata, payment method, tip amount, and line counts.
+- Recent history and basic statistics exclude showcase sales by default, with an explicit include toggle for review.
+
 **Out of scope**
 - Legacy alternative input track from earlier planning.
 - Experimental integrations not required for the 2026-07-05 target.
