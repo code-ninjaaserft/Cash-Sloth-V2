@@ -31,9 +31,9 @@ internal enum UiThemeMode
     Dark
 }
 
-internal sealed record AppSettings(UiLanguage Language, UiCurrency Currency, UiThemeMode Theme)
+internal sealed record AppSettings(UiLanguage Language, UiCurrency Currency, UiThemeMode Theme, bool HasSeenOnboarding)
 {
-    internal static AppSettings Default { get; } = new(UiLanguage.EnglishUk, UiCurrency.Chf, UiThemeMode.System);
+    internal static AppSettings Default { get; } = new(UiLanguage.EnglishUk, UiCurrency.Chf, UiThemeMode.System, false);
 }
 
 internal sealed record UiOption<T>(T Value, string Label)
@@ -46,7 +46,7 @@ internal sealed record UiOption<T>(T Value, string Label)
 
 internal sealed class AppSettingsStore
 {
-    private const int CurrentSchemaVersion = 1;
+    private const int CurrentSchemaVersion = 2;
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -93,7 +93,7 @@ internal sealed class AppSettingsStore
                 theme = AppSettings.Default.Theme;
             }
 
-            return new AppSettings(language, currency, theme);
+            return new AppSettings(language, currency, theme, document.HasSeenOnboarding);
         }
         catch
         {
@@ -107,7 +107,8 @@ internal sealed class AppSettingsStore
             CurrentSchemaVersion,
             settings.Language.ToString(),
             settings.Currency.ToString(),
-            settings.Theme.ToString());
+            settings.Theme.ToString(),
+            settings.HasSeenOnboarding);
 
         try
         {
@@ -207,8 +208,82 @@ internal static class UiLocalizer
         ["settings.language"] = new("Language", "Sprache", "Langue", "Lingua"),
         ["settings.currency"] = new("Currency", "Waehrung", "Monnaie", "Valuta"),
         ["settings.theme"] = new("UI Color", "UI-Farbe", "Couleur UI", "Colur UI"),
+        ["button.show_tutorial"] = new("Show tutorial", "Tutorial anzeigen", "Afficher tutoriel", "Mussar tutorial"),
+        ["startup.subtitle"] = new("Point of Sale", "Kassensystem", "Point de vente", "Punct da vendita"),
+        ["tab.shop"] = new("Shop", "Shop", "Vente", "Shop"),
         ["tab.settings"] = new("Settings", "Einstellungen", "Parametres", "Settings"),
         ["tab.presets"] = new("Presets", "Presets", "Presets", "Presets"),
+        ["tab.accounts"] = new("Accounts", "Accounts", "Comptes", "Accounts"),
+        ["tab.event"] = new("Event", "Event", "Evenement", "Occurrenza"),
+        ["tab.history"] = new("History", "Verlauf", "Historique", "Historia"),
+        ["onboarding.title"] = new("CashSloth quick start", "CashSloth Schnellstart", "Demarrage rapide CashSloth", "Start spert CashSloth"),
+        ["onboarding.subtitle"] = new("Set up the register, sell from the Shop tab, and use Event mode when several tills work together.", "Kasse einrichten, im Shop verkaufen und Event-Modus nutzen, wenn mehrere Kassen zusammenarbeiten.", "Configurer la caisse, vendre dans l'onglet Vente et utiliser le mode evenement avec plusieurs caisses.", "Configurar la cassa, vender el tab Shop ed usar il modus event cun pliras cassas."),
+        ["onboarding.shop_title"] = new("1. Shop", "1. Shop", "1. Vente", "1. Shop"),
+        ["onboarding.shop_body"] = new("Use product buttons to add items. Change quantities directly in the cart with - and +, or tap the quantity number for exact input.", "Artikel ueber Produktbuttons hinzufuegen. Mengen direkt im Warenkorb mit - und + aendern oder die Menge antippen fuer exakte Eingabe.", "Ajouter des articles avec les boutons produit. Modifier les quantites avec - et +, ou toucher le nombre pour une saisie exacte.", "Agiuntar products cun ils buttons. Midar quantitads cun - e + ni tutgar il numer per endatar exact."),
+        ["onboarding.checkout_title"] = new("2. Checkout", "2. Zahlung", "2. Paiement", "2. Pajament"),
+        ["onboarding.checkout_body"] = new("Use quick tender buttons or a custom amount, then complete the sale. Tips and payment method are set in Event.", "Schnellbetraege oder freien Betrag nutzen, dann Verkauf abschliessen. Trinkgeld und Zahlungsart werden im Event gesetzt.", "Utiliser les montants rapides ou un montant libre, puis terminer la vente. Pourboire et mode de paiement se reglent dans Evenement.", "Usar imports sperts ni in import liber, lu terminar la vendita. Bubronda e metoda da pajament vegnan mess en Event."),
+        ["onboarding.event_title"] = new("3. Event mode", "3. Event-Modus", "3. Mode evenement", "3. Modus event"),
+        ["onboarding.event_body"] = new("Name the event and register. Hosts can scan for client registers; clients can make themselves visible on the network.", "Event und Kasse benennen. Hosts koennen Client-Kassen suchen; Clients koennen sich im Netzwerk sichtbar machen.", "Nommer l'evenement et la caisse. Les hotes cherchent des caisses clientes; les clients peuvent etre visibles sur le reseau.", "Numnar event e cassa. Hosts anflan cassas client; clients san daventar veseivels el network."),
+        ["onboarding.accounts_title"] = new("4. Accounts and presets", "4. Accounts und Presets", "4. Comptes et presets", "4. Accounts e presets"),
+        ["onboarding.accounts_body"] = new("Anyone can create a normal account. Admins manage roles and presets. The tutorial can be opened again from Settings.", "Alle koennen einen normalen Account erstellen. Admins verwalten Rollen und Presets. Das Tutorial kann in Einstellungen erneut geoeffnet werden.", "Tout le monde peut creer un compte normal. Les admins gerent les roles et presets. Le tutoriel se rouvre dans Parametres.", "Mintgin sa crear in account normal. Admins administreschan rollas e presets. Il tutorial ei en Settings puspei avierts."),
+        ["onboarding.localization_note"] = new("Changing language, currency, or theme affects fixed app UI only. Product names, categories, usernames, and passwords stay as entered.", "Sprache, Waehrung und Theme betreffen nur fixe App-Oberflaechen. Produktnamen, Kategorien, Usernamen und Passwoerter bleiben wie eingegeben.", "Langue, monnaie et theme changent seulement l'interface fixe. Produits, categories, utilisateurs et mots de passe restent saisis.", "Lingua, valuta e theme midan mo la UI fixa. Products, categorias, usernames e passwords restan sco endatai."),
+        ["button.start_using_cashsloth"] = new("Start using CashSloth", "CashSloth starten", "Commencer avec CashSloth", "Cumenzer cun CashSloth"),
+        ["account.session"] = new("Session", "Sitzung", "Session", "Sessiun"),
+        ["account.not_signed_in"] = new("Not signed in", "Nicht angemeldet", "Non connecte", "Buca annunziau"),
+        ["account.username"] = new("Username", "Benutzername", "Nom utilisateur", "Username"),
+        ["account.password"] = new("Password", "Passwort", "Mot de passe", "Password"),
+        ["account.confirm_password"] = new("Confirm password", "Passwort bestaetigen", "Confirmer mot de passe", "Confirmar password"),
+        ["account.password_set_change"] = new("Password (set/change)", "Passwort (setzen/aendern)", "Mot de passe (definir/modifier)", "Password (metter/midar)"),
+        ["account.create_account"] = new("Create account", "Account erstellen", "Creer compte", "Crear account"),
+        ["account.management_admin"] = new("Account management (Admin)", "Account-Verwaltung (Admin)", "Gestion comptes (Admin)", "Administraziun accounts (Admin)"),
+        ["button.login"] = new("Login", "Anmelden", "Connexion", "Login"),
+        ["button.logout"] = new("Logout", "Abmelden", "Deconnexion", "Logout"),
+        ["button.local_admin_recovery"] = new("Local admin recovery", "Lokale Admin-Wiederherstellung", "Recuperation admin locale", "Recuperaziun admin locala"),
+        ["button.create_normal_user"] = new("Create normal user", "Normalen User erstellen", "Creer utilisateur normal", "Crear user normal"),
+        ["button.refresh_accounts"] = new("Refresh accounts", "Accounts aktualisieren", "Actualiser comptes", "Actualisar accounts"),
+        ["button.save_account"] = new("Save account", "Account speichern", "Enregistrer compte", "Salvar account"),
+        ["button.delete_account"] = new("Delete account", "Account loeschen", "Supprimer compte", "Stizzar account"),
+        ["label.role"] = new("Role", "Rolle", "Role", "Rolla"),
+        ["role.user"] = new("User", "User", "Utilisateur", "User"),
+        ["role.creator"] = new("Creator", "Ersteller", "Createur", "Creatur"),
+        ["role.admin"] = new("Admin", "Admin", "Admin", "Admin"),
+        ["checkbox.enabled"] = new("Enabled", "Aktiviert", "Active", "Activau"),
+        ["event.context"] = new("Event context", "Event-Kontext", "Contexte evenement", "Context event"),
+        ["event.name"] = new("Event name", "Eventname", "Nom evenement", "Num event"),
+        ["event.register"] = new("Register", "Kasse", "Caisse", "Cassa"),
+        ["event.checkout"] = new("Checkout", "Checkout", "Paiement", "Checkout"),
+        ["event.payment_method"] = new("Payment method", "Zahlungsart", "Mode de paiement", "Metoda da pajament"),
+        ["event.tip_amount"] = new("Tip amount", "Trinkgeld", "Pourboire", "Bubronda"),
+        ["event.showcase_mode"] = new("Showcase mode (exclude from statistics)", "Showcase-Modus (aus Statistik ausschliessen)", "Mode showcase (exclure des statistiques)", "Modus showcase (excluder dalla statistica)"),
+        ["event.host_add_client"] = new("Host: add client register", "Host: Client-Kasse hinzufuegen", "Hote: ajouter caisse cliente", "Host: agiuntar cassa client"),
+        ["event.visible_registers"] = new("Visible registers", "Sichtbare Kassen", "Caisses visibles", "Cassas veseivlas"),
+        ["event.network_client_mode"] = new("Network client mode", "Netzwerk-Client-Modus", "Mode client reseau", "Modus client network"),
+        ["event.network_idle"] = new("Network mode idle.", "Netzwerkmodus inaktiv.", "Mode reseau inactif.", "Modus network inactiv."),
+        ["event.totals"] = new("Event totals", "Event gesamt", "Totaux evenement", "Totals event"),
+        ["event.selected_register"] = new("Selected register", "Ausgewaehlte Kasse", "Caisse selectionnee", "Cassa selecziunada"),
+        ["button.complete_sale"] = new("Complete sale", "Verkauf abschliessen", "Terminer vente", "Terminar vendita"),
+        ["button.add_additional_register"] = new("Add additional register", "Zusaetzliche Kasse hinzufuegen", "Ajouter caisse", "Agiuntar cassa"),
+        ["button.add_selected_client"] = new("Add selected client", "Ausgewaehlten Client hinzufuegen", "Ajouter client selectionne", "Agiuntar client selecziunau"),
+        ["button.show_register_network"] = new("Show this register on network", "Diese Kasse im Netzwerk anzeigen", "Afficher cette caisse sur le reseau", "Mussar questa cassa el network"),
+        ["button.hide_register_network"] = new("Hide this register on network", "Diese Kasse im Netzwerk ausblenden", "Masquer cette caisse du reseau", "Zuppentar questa cassa el network"),
+        ["button.refresh_clients"] = new("Refresh clients", "Clients aktualisieren", "Actualiser clients", "Actualisar clients"),
+        ["button.remove_selected_small"] = new("Remove selected", "Auswahl entfernen", "Supprimer selection", "Stizzar selecziun"),
+        ["payment.cash"] = new("Cash", "Bar", "Especes", "Cash"),
+        ["payment.card"] = new("Card", "Karte", "Carte", "Carta"),
+        ["payment.rfid_nfc"] = new("RFID/NFC", "RFID/NFC", "RFID/NFC", "RFID/NFC"),
+        ["payment.twint"] = new("TWINT", "TWINT", "TWINT", "TWINT"),
+        ["payment.mobile"] = new("Mobile", "Mobile", "Mobile", "Mobile"),
+        ["history.recent_sales"] = new("Recent sales", "Letzte Verkaeufe", "Ventes recentes", "Venditas novas"),
+        ["history.statistics_filters"] = new("Statistics filters", "Statistikfilter", "Filtres statistiques", "Filters statistica"),
+        ["history.event"] = new("Event", "Event", "Evenement", "Event"),
+        ["history.user"] = new("User", "User", "Utilisateur", "User"),
+        ["history.sales"] = new("Sales", "Verkaeufe", "Ventes", "Venditas"),
+        ["history.subtotal"] = new("Subtotal", "Zwischensumme", "Sous-total", "Subtotal"),
+        ["history.tips"] = new("Tips", "Trinkgeld", "Pourboires", "Bubrondas"),
+        ["history.lines"] = new("Lines", "Zeilen", "Lignes", "Lingias"),
+        ["button.refresh_history"] = new("Refresh history", "Verlauf aktualisieren", "Actualiser historique", "Actualisar historia"),
+        ["button.use_current_event"] = new("Use current event", "Aktuelles Event verwenden", "Utiliser evenement actuel", "Usar event actual"),
+        ["checkbox.include_showcase"] = new("Include showcase", "Showcase einbeziehen", "Inclure showcase", "Includer showcase"),
         ["preset.local_presets"] = new("Local presets", "Lokale Presets", "Presets locaux", "Presets locals"),
         ["preset.online_presets"] = new("Online presets", "Online-Presets", "Presets en ligne", "Presets online"),
         ["preset.online_import"] = new("Online preset import", "Online-Preset-Import", "Import preset en ligne", "Import presets online"),
@@ -425,6 +500,28 @@ internal static class UiLocalizer
         };
     }
 
+    internal static IReadOnlyList<UiOption<string>> BuildPaymentMethodOptions(UiLanguage language)
+    {
+        return new[]
+        {
+            new UiOption<string>("Cash", Get(language, "payment.cash")),
+            new UiOption<string>("Card", Get(language, "payment.card")),
+            new UiOption<string>("RFID/NFC", Get(language, "payment.rfid_nfc")),
+            new UiOption<string>("TWINT", Get(language, "payment.twint")),
+            new UiOption<string>("Mobile", Get(language, "payment.mobile"))
+        };
+    }
+
+    internal static IReadOnlyList<UiOption<UserRole>> BuildRoleOptions(UiLanguage language)
+    {
+        return new[]
+        {
+            new UiOption<UserRole>(UserRole.User, Get(language, "role.user")),
+            new UiOption<UserRole>(UserRole.Creator, Get(language, "role.creator")),
+            new UiOption<UserRole>(UserRole.Admin, Get(language, "role.admin"))
+        };
+    }
+
     private static string ResolveLanguage(UiLanguage language)
     {
         return language switch
@@ -476,4 +573,5 @@ internal sealed record AppSettingsDocument(
     [property: JsonPropertyName("schema_version")] int SchemaVersion,
     [property: JsonPropertyName("language")] string Language,
     [property: JsonPropertyName("currency")] string Currency,
-    [property: JsonPropertyName("theme")] string Theme);
+    [property: JsonPropertyName("theme")] string Theme,
+    [property: JsonPropertyName("has_seen_onboarding")] bool HasSeenOnboarding = false);

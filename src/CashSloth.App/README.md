@@ -15,3 +15,5 @@ Current MVP capabilities:
 - import presets from HTTP/HTTPS URLs and upload active presets to a web endpoint
 - complete sales into local SQLite history with event/register/user metadata
 - track payment method, tips, showcase mode, recent sales, and basic statistics
+- discover visible client registers on the LAN, add/remove them per event, and view total or selected-register statistics
+- show the CashSloth logo in app chrome/startup, run first-start onboarding, and reopen the tutorial from Settings

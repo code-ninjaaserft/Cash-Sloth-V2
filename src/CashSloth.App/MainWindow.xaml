@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="CashSloth POS" Height="720" Width="1240"
+        Icon="Assets/CashSlothLogo.png"
         Loaded="OnWindowLoaded"
         Closing="OnWindowClosing">
   <Grid Margin="16">
@@ -62,10 +63,16 @@
                       Style="{StaticResource TopBarComboBoxStyle}"
                       Width="140"
                       Height="34"
+                      Margin="0,0,14,0"
                       VerticalContentAlignment="Center"
                       DisplayMemberPath="Label"
                       SelectedValuePath="Value"
                       SelectionChanged="OnThemeSelectionChanged" />
+
+            <Button Content="Show tutorial"
+                    Width="130"
+                    Height="34"
+                    Click="OnShowOnboardingClick" />
           </WrapPanel>
         </TabItem>
 
@@ -272,7 +279,9 @@
                 <TextBlock Text="Role" Margin="0,8,0,2" />
                 <ComboBox x:Name="AccountRoleComboBox"
                           Style="{StaticResource TopBarComboBoxStyle}"
-                          Height="34" />
+                          Height="34"
+                          DisplayMemberPath="Label"
+                          SelectedValuePath="Value" />
 
                 <CheckBox x:Name="AccountEnabledCheckBox"
                           Content="Enabled"
@@ -295,6 +304,13 @@
                         PanningMode="VerticalOnly">
             <Grid Margin="0,4,0,0"
                   Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="12" />
@@ -302,6 +318,7 @@
               </Grid.ColumnDefinitions>
 
               <Border Grid.Column="0"
+                      Grid.Row="0"
                       BorderBrush="{DynamicResource AppControlBorderBrush}"
                       BorderThickness="1"
                       CornerRadius="4"
@@ -328,6 +345,7 @@
               </Border>
 
               <Border Grid.Column="2"
+                      Grid.Row="0"
                       BorderBrush="{DynamicResource AppControlBorderBrush}"
                       BorderThickness="1"
                       CornerRadius="4"
@@ -338,7 +356,9 @@
                   <TextBlock Text="Payment method" Margin="0,2,0,2" />
                   <ComboBox x:Name="PaymentMethodComboBox"
                             Style="{StaticResource TopBarComboBoxStyle}"
-                            Height="34" />
+                            Height="34"
+                            DisplayMemberPath="Label"
+                            SelectedValuePath="Value" />
 
                   <TextBlock Text="Tip amount" Margin="0,8,0,2" />
                   <TextBox x:Name="TipAmountTextBox"
@@ -360,6 +380,141 @@
                           Margin="0,10,0,0"
                           Click="OnCompleteSaleClick" />
                 </StackPanel>
+              </Border>
+
+              <Border Grid.Row="2"
+                      Grid.Column="0"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Text="Host: add client register" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                    <Button x:Name="ScanClientRegistersButton"
+                            Content="Add additional register"
+                            Width="180"
+                            Height="34"
+                            Click="OnScanClientRegistersClick" />
+                    <Button x:Name="AddSelectedClientRegisterButton"
+                            Content="Add selected client"
+                            Width="160"
+                            Height="34"
+                            Margin="6,0,0,0"
+                            Click="OnAddSelectedClientRegisterClick" />
+                  </WrapPanel>
+
+                  <TextBlock Grid.Row="2" Text="Visible registers" Margin="0,0,0,4" />
+                  <ListBox x:Name="DiscoveredRegistersListBox"
+                           Grid.Row="3"
+                           Height="120"
+                           FontSize="13"
+                           ScrollViewer.PanningMode="VerticalOnly" />
+                </Grid>
+              </Border>
+
+              <Border Grid.Row="2"
+                      Grid.Column="2"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Text="Network client mode" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                    <Button x:Name="ToggleRegisterAdvertisementButton"
+                            Content="Show this register on network"
+                            Width="230"
+                            Height="34"
+                            Click="OnToggleRegisterAdvertisementClick" />
+                    <Button x:Name="RefreshClientRegistersButton"
+                            Content="Refresh clients"
+                            Width="130"
+                            Height="34"
+                            Margin="6,0,0,0"
+                            Click="OnRefreshClientRegistersClick" />
+                    <Button x:Name="RemoveSelectedClientRegisterButton"
+                            Content="Remove selected"
+                            Width="140"
+                            Height="34"
+                            Margin="6,0,0,0"
+                            Click="OnRemoveSelectedClientRegisterClick" />
+                  </WrapPanel>
+
+                  <TextBlock x:Name="EventNetworkStatusText"
+                             Grid.Row="2"
+                             Text="Network mode idle."
+                             Margin="0,0,0,4"
+                             FontSize="13"
+                             FontWeight="SemiBold" />
+                  <ListBox x:Name="EventClientRegistersListBox"
+                           Grid.Row="3"
+                           Height="120"
+                           FontSize="13"
+                           SelectionChanged="OnEventClientRegisterSelectionChanged"
+                           ScrollViewer.PanningMode="VerticalOnly" />
+                </Grid>
+              </Border>
+
+              <Border Grid.Row="4"
+                      Grid.Column="0"
+                      Grid.ColumnSpan="3"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+
+                  <StackPanel Grid.Column="0">
+                    <TextBlock Text="Event totals" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <UniformGrid Columns="2">
+                      <TextBlock Text="Sales" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventTotalSalesValueText" Text="0" />
+                      <TextBlock Text="Subtotal" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventTotalSubtotalValueText" Text="CHF 0.00" />
+                      <TextBlock Text="Tips" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventTotalTipValueText" Text="CHF 0.00" />
+                      <TextBlock Text="Total" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventTotalValueText" Text="CHF 0.00" />
+                    </UniformGrid>
+                  </StackPanel>
+
+                  <StackPanel Grid.Column="2">
+                    <TextBlock x:Name="EventRegisterStatsTitleText"
+                               Text="Selected register"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,6" />
+                    <UniformGrid Columns="2">
+                      <TextBlock Text="Sales" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventRegisterSalesValueText" Text="0" />
+                      <TextBlock Text="Subtotal" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventRegisterSubtotalValueText" Text="CHF 0.00" />
+                      <TextBlock Text="Tips" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventRegisterTipValueText" Text="CHF 0.00" />
+                      <TextBlock Text="Total" FontWeight="SemiBold" />
+                      <TextBlock x:Name="EventRegisterTotalValueText" Text="CHF 0.00" />
+                    </UniformGrid>
+                  </StackPanel>
+                </Grid>
               </Border>
             </Grid>
           </ScrollViewer>
@@ -982,6 +1137,160 @@
           </WrapPanel>
         </Grid>
       </Border>
+    </Border>
+
+    <Border x:Name="OnboardingOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="5"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="80"
+            Background="#AA000000"
+            Visibility="Collapsed">
+      <Border Width="760"
+              MaxHeight="620"
+              Padding="18"
+              Background="{DynamicResource AppSurfaceBrush}"
+              BorderBrush="{DynamicResource AppControlBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <DockPanel Grid.Row="0" Margin="0,0,0,12">
+              <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="CashSloth quick start"
+                           FontSize="26"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Set up the register, sell from the Shop tab, and use Event mode when several tills work together."
+                           Margin="0,4,0,0"
+                           TextWrapping="Wrap"
+                           Opacity="0.85" />
+              </StackPanel>
+              <Button Content="X"
+                      Width="42"
+                      Height="42"
+                      FontSize="16"
+                      HorizontalAlignment="Right"
+                      DockPanel.Dock="Right"
+                      Click="OnCloseOnboardingClick" />
+            </DockPanel>
+
+            <UniformGrid Grid.Row="1" Columns="2" Margin="0,0,0,12">
+              <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="10"
+                      Margin="0,0,6,6">
+                <StackPanel>
+                  <TextBlock Text="1. Shop"
+                             FontSize="18"
+                             FontWeight="SemiBold"
+                             Margin="0,0,0,4" />
+                  <TextBlock Text="Use product buttons to add items. Change quantities directly in the cart with - and +, or tap the quantity number for exact input."
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="10"
+                      Margin="6,0,0,6">
+                <StackPanel>
+                  <TextBlock Text="2. Checkout"
+                             FontSize="18"
+                             FontWeight="SemiBold"
+                             Margin="0,0,0,4" />
+                  <TextBlock Text="Use quick tender buttons or a custom amount, then complete the sale. Tips and payment method are set in Event."
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="10"
+                      Margin="0,6,6,0">
+                <StackPanel>
+                  <TextBlock Text="3. Event mode"
+                             FontSize="18"
+                             FontWeight="SemiBold"
+                             Margin="0,0,0,4" />
+                  <TextBlock Text="Name the event and register. Hosts can scan for client registers; clients can make themselves visible on the network."
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="10"
+                      Margin="6,6,0,0">
+                <StackPanel>
+                  <TextBlock Text="4. Accounts and presets"
+                             FontSize="18"
+                             FontWeight="SemiBold"
+                             Margin="0,0,0,4" />
+                  <TextBlock Text="Anyone can create a normal account. Admins manage roles and presets. The tutorial can be opened again from Settings."
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </UniformGrid>
+
+            <TextBlock Grid.Row="2"
+                       Text="Changing language, currency, or theme affects fixed app UI only. Product names, categories, usernames, and passwords stay as entered."
+                       TextWrapping="Wrap"
+                       Opacity="0.85"
+                       Margin="0,0,0,12" />
+
+            <WrapPanel Grid.Row="3" HorizontalAlignment="Right">
+              <Button Content="Start using CashSloth"
+                      Width="190"
+                      Height="40"
+                      FontSize="15"
+                      Click="OnCloseOnboardingClick" />
+            </WrapPanel>
+          </Grid>
+        </ScrollViewer>
+      </Border>
+    </Border>
+
+    <Border x:Name="StartupOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="5"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="100"
+            Background="{DynamicResource AppWindowBackgroundBrush}">
+      <StackPanel HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+        <Image Source="Assets/CashSlothLogo.png"
+               Width="190"
+               Height="190"
+               Stretch="Uniform"
+               Margin="0,0,0,18" />
+        <TextBlock Text="CashSloth"
+                   FontSize="44"
+                   FontWeight="SemiBold"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="Point of Sale"
+                   FontSize="16"
+                   HorizontalAlignment="Center"
+                   Margin="0,6,0,18"
+                   Opacity="0.8" />
+        <ProgressBar Width="260"
+                     Height="8"
+                     IsIndeterminate="True" />
+      </StackPanel>
     </Border>
   </Grid>
 </Window>

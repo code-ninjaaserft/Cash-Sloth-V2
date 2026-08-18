@@ -62,6 +62,8 @@ The MVP stack is functional end-to-end:
 - Preset web backend scaffold is available in `src/CashSloth.PresetApi` (SQLite + HTTP endpoints).
 - WPF host can complete local sales into SQLite with event/register/user metadata, payment method, tip amount, recent history, and basic statistics.
 - Showcase sales can be recorded without appearing in default history/statistics unless explicitly included.
+- Event mode can discover visible client registers on the LAN, persist added client registers, remove them again, and show event totals plus selected-register statistics.
+- Startup uses the CashSloth logo, a short launch animation, and first-run onboarding that can be reopened from Settings.
 - Native contract tests cover version, catalog, cart, and payment behavior via CTest.
 
 ## Roadmap
@@ -92,10 +94,10 @@ Current planning targets: **QEN-GV** (`2026-03-14`, closeout) and **Mobile Event
 - [x] Add **history + statistics** views for completed sales.
 - [x] Add a **showcase mode** that is excluded from default history/statistics.
 - [ ] Add an **event mode** where multiple users can open multiple tills/registers (for example, Kasse 1 and Kasse 2) under one event and sell in parallel.
-- [ ] Add event analytics that can be filtered by **single register/user** and **overall event totals**.
-- [ ] Add an in-app **tutorial/onboarding** flow.
-- [ ] Add a **startup animation** for app launch.
-- [ ] Apply **UI polish** items, including a proper window icon at the top left near minimize/maximize/close controls on Windows.
+- [x] Add event analytics that can be filtered by **single register/user** and **overall event totals**.
+- [x] Add an in-app **tutorial/onboarding** flow.
+- [x] Add a **startup animation** for app launch.
+- [x] Apply **UI polish** items, including a proper window icon at the top left near minimize/maximize/close controls on Windows.
 
 ## License
 MIT. See the `LICENSE` file.

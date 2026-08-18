@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Screen = System.Windows.Forms.Screen;
 using WpfButton = System.Windows.Controls.Button;
 
@@ -34,6 +35,10 @@ public partial class MainWindow : Window
     private readonly OnlinePresetProvider _onlinePresetProvider = new();
     private readonly AuthSqliteStore _authStore = new();
     private readonly SaleHistorySqliteStore _saleHistoryStore = new();
+    private readonly EventRegisterStore _eventRegisterStore = new();
+    private readonly EventRegisterDiscoveryService _eventDiscoveryService = new();
+    private readonly ObservableCollection<EventRegisterListItem> _eventClientRegisterItems = new();
+    private readonly ObservableCollection<EventDiscoveredRegisterListItem> _eventDiscoveredRegisterItems = new();
     private IntPtr _cart = IntPtr.Zero;
     private long _currentGivenCents;
     private bool _coreInitialized;
@@ -415,8 +420,8 @@ public partial class MainWindow : Window
 
     private void InitializeAuthUi()
     {
-        AccountRoleComboBox.ItemsSource = Enum.GetValues<UserRole>();
-        AccountRoleComboBox.SelectedItem = UserRole.User;
+        RefreshAccountRoleOptions();
+        AccountRoleComboBox.SelectedValue = UserRole.User;
         AccountEnabledCheckBox.IsChecked = true;
 
         if (!_authStore.TryEnsureInitialized(out var seededDefaultAdmin, out var initError))
@@ -454,12 +459,38 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RefreshPaymentMethodOptions()
+    {
+        var selected = PaymentMethodComboBox.SelectedValue as string ?? "Cash";
+        var options = UiLocalizer.BuildPaymentMethodOptions(_settings.Language);
+        PaymentMethodComboBox.ItemsSource = options;
+        PaymentMethodComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, selected, StringComparison.Ordinal))
+            ? selected
+            : "Cash";
+    }
+
+    private void RefreshAccountRoleOptions()
+    {
+        var selected = AccountRoleComboBox.SelectedValue is UserRole role ? role : UserRole.User;
+        var options = UiLocalizer.BuildRoleOptions(_settings.Language);
+        AccountRoleComboBox.ItemsSource = options;
+        AccountRoleComboBox.SelectedValue = options.Any(option => option.Value == selected)
+            ? selected
+            : UserRole.User;
+    }
+
+    private string ResolveRoleLabel(UserRole role)
+    {
+        return UiLocalizer.BuildRoleOptions(_settings.Language)
+            .FirstOrDefault(option => option.Value == role)?.Label ?? role.ToString();
+    }
+
     private void RefreshAuthUi(bool loadAccounts)
     {
         var isSignedIn = _currentUser != null;
         CurrentUserTextBlock.Text = isSignedIn
-            ? $"{_currentUser!.Username} ({_currentUser.Role})"
-            : "Not signed in";
+            ? $"{_currentUser!.Username} ({ResolveRoleLabel(_currentUser.Role)})"
+            : L("account.not_signed_in");
 
         LoginUsernameTextBox.IsEnabled = !isSignedIn;
         LoginPasswordBox.IsEnabled = !isSignedIn;
@@ -625,7 +656,7 @@ public partial class MainWindow : Window
 
         AccountUsernameTextBox.Text = selected.Username;
         AccountPasswordBox.Password = string.Empty;
-        AccountRoleComboBox.SelectedItem = selected.Role;
+        AccountRoleComboBox.SelectedValue = selected.Role;
         AccountEnabledCheckBox.IsChecked = selected.IsEnabled;
     }
 
@@ -643,7 +674,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (AccountRoleComboBox.SelectedItem is not UserRole role)
+        if (AccountRoleComboBox.SelectedValue is not UserRole role)
         {
             role = UserRole.User;
         }
@@ -750,7 +781,7 @@ public partial class MainWindow : Window
         AccountsListBox.SelectedItem = null;
         ClearTextBox(AccountUsernameTextBox);
         AccountPasswordBox.Password = string.Empty;
-        AccountRoleComboBox.SelectedItem = UserRole.User;
+        AccountRoleComboBox.SelectedValue = UserRole.User;
         AccountEnabledCheckBox.IsChecked = true;
     }
 
@@ -778,10 +809,13 @@ public partial class MainWindow : Window
 
     private void InitializeSalesUi()
     {
+        EventClientRegistersListBox.ItemsSource = _eventClientRegisterItems;
+        DiscoveredRegistersListBox.ItemsSource = _eventDiscoveredRegisterItems;
         EventNameTextBox.Text = DefaultEventName;
         RegisterNameTextBox.Text = DefaultRegisterName;
-        PaymentMethodComboBox.ItemsSource = new[] { "Cash", "Card", "RFID/NFC", "TWINT", "Mobile" };
-        PaymentMethodComboBox.SelectedIndex = 0;
+        EventNameTextBox.TextChanged += OnEventContextTextChanged;
+        RegisterNameTextBox.TextChanged += OnEventContextTextChanged;
+        RefreshPaymentMethodOptions();
 
         if (!_saleHistoryStore.TryEnsureInitialized(out var initError))
         {
@@ -790,7 +824,22 @@ public partial class MainWindow : Window
         }
 
         RefreshSaleContextPreview();
+        RefreshEventClientRegisters(updateStatusOnError: true);
+        RefreshEventStatisticsUi();
         RefreshSaleHistoryUi(updateStatusOnError: true);
+    }
+
+    private void OnEventContextTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_eventDiscoveryService.IsAdvertising)
+        {
+            _eventDiscoveryService.StopAdvertising();
+            UpdateRegisterAdvertisementUi();
+        }
+
+        RefreshEventClientRegisters(updateStatusOnError: false);
+        RefreshEventStatisticsUi();
+        EventNetworkStatusText.Text = "Event/register changed. Restart network visibility if needed.";
     }
 
     private void OnCompleteSaleClick(object sender, RoutedEventArgs e)
@@ -866,6 +915,7 @@ public partial class MainWindow : Window
         TipAmountTextBox.Text = string.Empty;
         RefreshFromCoreJson();
         RefreshSaleHistoryUi(updateStatusOnError: true);
+        RefreshEventStatisticsUi();
 
         StatusText.Text = sale.IsShowcase
             ? $"Showcase sale '{saleId}' saved and excluded from statistics."
@@ -885,6 +935,7 @@ public partial class MainWindow : Window
     private void OnHistoryFilterChanged(object sender, RoutedEventArgs e)
     {
         RefreshSaleHistoryUi(updateStatusOnError: true);
+        RefreshEventStatisticsUi();
     }
 
     private void OnUseCurrentHistoryFiltersClick(object sender, RoutedEventArgs e)
@@ -893,6 +944,196 @@ public partial class MainWindow : Window
         HistoryRegisterFilterTextBox.Text = NormalizeSaleText(RegisterNameTextBox.Text, DefaultRegisterName);
         HistoryUserFilterTextBox.Text = _currentUser?.Username ?? string.Empty;
         RefreshSaleHistoryUi(updateStatusOnError: true);
+    }
+
+    private async void OnScanClientRegistersClick(object sender, RoutedEventArgs e)
+    {
+        ScanClientRegistersButton.IsEnabled = false;
+        EventNetworkStatusText.Text = "Scanning LAN for visible registers...";
+
+        try
+        {
+            var discovered = await _eventDiscoveryService.ScanAsync(GetCurrentEventName(), TimeSpan.FromSeconds(2));
+            _eventDiscoveredRegisterItems.Clear();
+            foreach (var register in discovered)
+            {
+                _eventDiscoveredRegisterItems.Add(new EventDiscoveredRegisterListItem(register));
+            }
+
+            EventNetworkStatusText.Text = _eventDiscoveredRegisterItems.Count == 0
+                ? "No visible registers found for this event."
+                : $"Found {_eventDiscoveredRegisterItems.Count} visible register(s).";
+        }
+        catch (Exception ex)
+        {
+            EventNetworkStatusText.Text = $"Register scan failed: {ex.Message}";
+        }
+        finally
+        {
+            ScanClientRegistersButton.IsEnabled = true;
+        }
+    }
+
+    private void OnAddSelectedClientRegisterClick(object sender, RoutedEventArgs e)
+    {
+        if (DiscoveredRegistersListBox.SelectedItem is not EventDiscoveredRegisterListItem selected)
+        {
+            StatusText.Text = "Select a visible client register first.";
+            return;
+        }
+
+        var register = new EventClientRegister(
+            selected.Advertisement.Id,
+            selected.Advertisement.EventName,
+            selected.Advertisement.RegisterName,
+            selected.Advertisement.HostName,
+            selected.Advertisement.Endpoint,
+            selected.Advertisement.LastSeenUtc);
+
+        if (!_eventRegisterStore.TryUpsert(register, out var saveError))
+        {
+            StatusText.Text = $"Client register could not be added: {saveError ?? "unknown error"}";
+            return;
+        }
+
+        RefreshEventClientRegisters(updateStatusOnError: true, preferredRegisterId: register.Id);
+        RefreshEventStatisticsUi();
+        StatusText.Text = $"Client register '{register.RegisterName}' added to event '{register.EventName}'.";
+    }
+
+    private void OnToggleRegisterAdvertisementClick(object sender, RoutedEventArgs e)
+    {
+        if (_eventDiscoveryService.IsAdvertising)
+        {
+            _eventDiscoveryService.StopAdvertising();
+            UpdateRegisterAdvertisementUi();
+            EventNetworkStatusText.Text = "This register is no longer visible on the network.";
+            return;
+        }
+
+        if (!_eventDiscoveryService.TryStartAdvertising(GetCurrentEventName(), GetCurrentRegisterName(), out var error))
+        {
+            EventNetworkStatusText.Text = $"Could not show this register on the network: {error ?? "unknown error"}";
+            return;
+        }
+
+        UpdateRegisterAdvertisementUi();
+        EventNetworkStatusText.Text = $"This register is visible as '{GetCurrentRegisterName()}' for event '{GetCurrentEventName()}'.";
+    }
+
+    private void OnRefreshClientRegistersClick(object sender, RoutedEventArgs e)
+    {
+        RefreshEventClientRegisters(updateStatusOnError: true);
+        RefreshEventStatisticsUi();
+        StatusText.Text = "Client register list refreshed.";
+    }
+
+    private void OnRemoveSelectedClientRegisterClick(object sender, RoutedEventArgs e)
+    {
+        if (EventClientRegistersListBox.SelectedItem is not EventRegisterListItem selected)
+        {
+            StatusText.Text = "Select a client register to remove.";
+            return;
+        }
+
+        if (!_eventRegisterStore.TryRemove(selected.Register.Id, out var removeError))
+        {
+            StatusText.Text = $"Client register could not be removed: {removeError ?? "unknown error"}";
+            return;
+        }
+
+        RefreshEventClientRegisters(updateStatusOnError: true);
+        RefreshEventStatisticsUi();
+        StatusText.Text = $"Client register '{selected.Register.RegisterName}' removed.";
+    }
+
+    private void OnEventClientRegisterSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        RefreshEventStatisticsUi();
+    }
+
+    private void RefreshEventClientRegisters(bool updateStatusOnError, string? preferredRegisterId = null)
+    {
+        if (!_eventRegisterStore.TryLoad(out var registers, out var error))
+        {
+            _eventClientRegisterItems.Clear();
+            if (updateStatusOnError)
+            {
+                StatusText.Text = $"Client registers could not be loaded: {error ?? "unknown error"}";
+            }
+
+            return;
+        }
+
+        var currentEvent = GetCurrentEventName();
+        var visibleRegisters = registers
+            .Where(register => string.Equals(register.EventName, currentEvent, StringComparison.OrdinalIgnoreCase))
+            .Select(register => new EventRegisterListItem(register))
+            .ToArray();
+
+        _eventClientRegisterItems.Clear();
+        foreach (var register in visibleRegisters)
+        {
+            _eventClientRegisterItems.Add(register);
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredRegisterId))
+        {
+            EventClientRegistersListBox.SelectedItem = _eventClientRegisterItems.FirstOrDefault(item =>
+                string.Equals(item.Register.Id, preferredRegisterId, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void RefreshEventStatisticsUi()
+    {
+        var currentEvent = GetCurrentEventName();
+        var includeShowcase = IncludeShowcaseHistoryCheckBox.IsChecked == true;
+
+        if (_saleHistoryStore.TryGetStatistics(new SaleHistoryFilter(EventName: currentEvent, IncludeShowcase: includeShowcase), out var totalStats, out _))
+        {
+            ApplyEventTotalStatistics(totalStats);
+        }
+        else
+        {
+            ApplyEventTotalStatistics(new SaleStatistics(0, 0, 0, 0, 0, 0, 0));
+        }
+
+        var selectedRegisterName = EventClientRegistersListBox.SelectedItem is EventRegisterListItem selected
+            ? selected.Register.RegisterName
+            : GetCurrentRegisterName();
+
+        EventRegisterStatsTitleText.Text = $"Register: {selectedRegisterName}";
+        if (_saleHistoryStore.TryGetStatistics(new SaleHistoryFilter(currentEvent, selectedRegisterName, IncludeShowcase: includeShowcase), out var registerStats, out _))
+        {
+            ApplyEventRegisterStatistics(registerStats);
+        }
+        else
+        {
+            ApplyEventRegisterStatistics(new SaleStatistics(0, 0, 0, 0, 0, 0, 0));
+        }
+    }
+
+    private void ApplyEventTotalStatistics(SaleStatistics stats)
+    {
+        EventTotalSalesValueText.Text = stats.SaleCount.ToString(CultureInfo.CurrentCulture);
+        EventTotalSubtotalValueText.Text = CurrencyFormatter.FormatCents(stats.SubtotalCents);
+        EventTotalTipValueText.Text = CurrencyFormatter.FormatCents(stats.TipCents);
+        EventTotalValueText.Text = CurrencyFormatter.FormatCents(stats.TotalCents);
+    }
+
+    private void ApplyEventRegisterStatistics(SaleStatistics stats)
+    {
+        EventRegisterSalesValueText.Text = stats.SaleCount.ToString(CultureInfo.CurrentCulture);
+        EventRegisterSubtotalValueText.Text = CurrencyFormatter.FormatCents(stats.SubtotalCents);
+        EventRegisterTipValueText.Text = CurrencyFormatter.FormatCents(stats.TipCents);
+        EventRegisterTotalValueText.Text = CurrencyFormatter.FormatCents(stats.TotalCents);
+    }
+
+    private void UpdateRegisterAdvertisementUi()
+    {
+        ToggleRegisterAdvertisementButton.Content = _eventDiscoveryService.IsAdvertising
+            ? L("button.hide_register_network")
+            : L("button.show_register_network");
     }
 
     private void RefreshSaleContextPreview()
@@ -989,7 +1230,17 @@ public partial class MainWindow : Window
 
     private string ResolveSelectedPaymentMethod()
     {
-        return PaymentMethodComboBox.SelectedItem as string ?? "Cash";
+        return PaymentMethodComboBox.SelectedValue as string ?? "Cash";
+    }
+
+    private string GetCurrentEventName()
+    {
+        return NormalizeSaleText(EventNameTextBox.Text, DefaultEventName);
+    }
+
+    private string GetCurrentRegisterName()
+    {
+        return NormalizeSaleText(RegisterNameTextBox.Text, DefaultRegisterName);
     }
 
     private static string NormalizeSaleText(string? text, string fallback)
@@ -1004,11 +1255,12 @@ public partial class MainWindow : Window
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+    private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         StatusText.Text = L("status.initializing_core");
         if (!TryCoreCall(NativeMethods.cs_init(), "initialize core"))
         {
+            await FinishStartupSequenceAsync(showFirstRunOnboarding: false);
             return;
         }
 
@@ -1016,11 +1268,13 @@ public partial class MainWindow : Window
 
         if (!TryCoreCall(LoadCatalogIntoCore(), "load catalog"))
         {
+            await FinishStartupSequenceAsync(showFirstRunOnboarding: false);
             return;
         }
 
         if (!TryCoreCall(NativeMethods.cs_cart_new(out _cart), "create cart"))
         {
+            await FinishStartupSequenceAsync(showFirstRunOnboarding: false);
             return;
         }
 
@@ -1030,16 +1284,90 @@ public partial class MainWindow : Window
         {
             StatusText.Text = _catalogLoadWarning;
         }
+
+        await FinishStartupSequenceAsync(showFirstRunOnboarding: true);
+    }
+
+    private async Task FinishStartupSequenceAsync(bool showFirstRunOnboarding)
+    {
+        await Task.Delay(650);
+        await FadeOutOverlayAsync(StartupOverlay);
+
+        if (showFirstRunOnboarding && !_settings.HasSeenOnboarding)
+        {
+            ShowOnboardingOverlay();
+        }
+    }
+
+    private static Task FadeOutOverlayAsync(FrameworkElement overlay)
+    {
+        if (overlay.Visibility != Visibility.Visible)
+        {
+            return Task.CompletedTask;
+        }
+
+        var completion = new TaskCompletionSource();
+        var animation = new DoubleAnimation
+        {
+            From = overlay.Opacity,
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(260),
+            FillBehavior = FillBehavior.Stop
+        };
+
+        animation.Completed += (_, _) =>
+        {
+            overlay.BeginAnimation(OpacityProperty, null);
+            overlay.Opacity = 1;
+            overlay.Visibility = Visibility.Collapsed;
+            completion.TrySetResult();
+        };
+
+        overlay.BeginAnimation(OpacityProperty, animation);
+        return completion.Task;
+    }
+
+    private void OnShowOnboardingClick(object sender, RoutedEventArgs e)
+    {
+        ShowOnboardingOverlay();
+    }
+
+    private void OnCloseOnboardingClick(object sender, RoutedEventArgs e)
+    {
+        CloseOnboardingOverlay(markSeen: true);
+    }
+
+    private void ShowOnboardingOverlay()
+    {
+        OnboardingOverlay.Visibility = Visibility.Visible;
+        OnboardingOverlay.Opacity = 1;
+    }
+
+    private void CloseOnboardingOverlay(bool markSeen)
+    {
+        OnboardingOverlay.Visibility = Visibility.Collapsed;
+        if (!markSeen || _settings.HasSeenOnboarding)
+        {
+            return;
+        }
+
+        _settings = _settings with { HasSeenOnboarding = true };
+        if (!_settingsStore.TrySave(_settings, out var saveError))
+        {
+            StatusText.Text = Lf("status.settings_save_failed", saveError ?? string.Empty);
+        }
     }
 
     private void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        CloseOnboardingOverlay(markSeen: false);
         CloseCatalogEditor();
         CloseAddItemOverlay();
         CloseCategoryManager();
         CloseAddCategoryOverlay();
         CloseCartQuantityOverlay();
         CloseCustomerDisplay();
+        _eventDiscoveryService.Dispose();
 
         if (_cart != IntPtr.Zero)
         {
@@ -2623,6 +2951,10 @@ public partial class MainWindow : Window
     {
         Title = L("main.title");
         TranslateLiterals(this);
+        RefreshPaymentMethodOptions();
+        RefreshAccountRoleOptions();
+        RefreshAuthUi(loadAccounts: false);
+        UpdateRegisterAdvertisementUi();
         RefreshPresetControls(_activePresetId);
         RenderOnlinePresetOptions(ResolveSelectedOnlinePresetId());
         RenderCategoryButtons();
@@ -2856,6 +3188,23 @@ public partial class MainWindow : Window
         public override string ToString()
         {
             return Text;
+        }
+    }
+
+    private sealed record EventRegisterListItem(EventClientRegister Register)
+    {
+        public override string ToString()
+        {
+            var seen = Register.LastSeenUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+            return $"{Register.RegisterName} @ {Register.HostName} ({Register.Endpoint}) | seen {seen}";
+        }
+    }
+
+    private sealed record EventDiscoveredRegisterListItem(EventRegisterAdvertisement Advertisement)
+    {
+        public override string ToString()
+        {
+            return Advertisement.ToString();
         }
     }
 }
