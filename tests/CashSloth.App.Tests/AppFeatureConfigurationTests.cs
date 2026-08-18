@@ -1,0 +1,91 @@
+using CashSloth.App;
+using Xunit;
+
+namespace CashSloth.App.Tests;
+
+public sealed class AppFeatureConfigurationTests
+{
+    [Fact]
+    public void MissingFeatureFileFallsBackToFull()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var flags = AppFeatureConfiguration.LoadFromFile(
+                Path.Combine(tempDir, "missing.json"),
+                AppFeatureFlags.Full);
+
+            Assert.Equal("full", flags.Profile);
+            Assert.True(flags.ShowPresets);
+            Assert.True(flags.ShowAccounts);
+            Assert.True(flags.ShowEvent);
+            Assert.True(flags.ShowCustomerDisplay);
+            Assert.True(flags.ShowCatalogEditing);
+            Assert.True(flags.ShowOnboarding);
+            Assert.True(flags.ShowStartupAnimation);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    [Fact]
+    public void ZammeAesseFeatureFileCanHideUnneededFeatures()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var path = Path.Combine(tempDir, "CashSloth.Features.json");
+            File.WriteAllText(path, """
+                {
+                  "profile": "zamme-aesse",
+                  "show_presets": false,
+                  "show_accounts": false,
+                  "show_event": false,
+                  "show_customer_display": false,
+                  "show_catalog_editing": true,
+                  "show_onboarding": false,
+                  "show_startup_animation": true
+                }
+                """);
+
+            var flags = AppFeatureConfiguration.LoadFromFile(path, AppFeatureFlags.Full);
+
+            Assert.Equal("zamme-aesse", flags.Profile);
+            Assert.False(flags.ShowPresets);
+            Assert.False(flags.ShowAccounts);
+            Assert.False(flags.ShowEvent);
+            Assert.False(flags.ShowCustomerDisplay);
+            Assert.True(flags.ShowCatalogEditing);
+            Assert.False(flags.ShowOnboarding);
+            Assert.True(flags.ShowStartupAnimation);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    private static string CreateTempDir()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "cashsloth-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static void SafeDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch
+        {
+            // Best effort cleanup for test temp directories.
+        }
+    }
+}

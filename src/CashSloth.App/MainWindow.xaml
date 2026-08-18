@@ -69,7 +69,8 @@
                       SelectedValuePath="Value"
                       SelectionChanged="OnThemeSelectionChanged" />
 
-            <Button Content="Show tutorial"
+            <Button x:Name="ShowTutorialButton"
+                    Content="Show tutorial"
                     Width="130"
                     Height="34"
                     Click="OnShowOnboardingClick" />
@@ -762,8 +763,8 @@
 
         <Separator Margin="16,0,16,0" Width="1" />
 
-        <Button Content="Open Customer Display" Width="220" Height="44" FontSize="16" Click="OnOpenCustomerDisplayClick" />
-        <Button Content="Close Customer Display" Width="220" Height="44" FontSize="16" Margin="6,0,0,0" Click="OnCloseCustomerDisplayClick" />
+        <Button x:Name="OpenCustomerDisplayButton" Content="Open Customer Display" Width="220" Height="44" FontSize="16" Click="OnOpenCustomerDisplayClick" />
+        <Button x:Name="CloseCustomerDisplayButton" Content="Close Customer Display" Width="220" Height="44" FontSize="16" Margin="6,0,0,0" Click="OnCloseCustomerDisplayClick" />
       </StackPanel>
 
       <WrapPanel x:Name="GivenButtonsPanel" Grid.Row="1" Margin="0,10,0,0" VerticalAlignment="Center">

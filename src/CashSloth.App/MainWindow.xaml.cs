@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private readonly SaleHistorySqliteStore _saleHistoryStore = new();
     private readonly EventRegisterStore _eventRegisterStore = new();
     private readonly EventRegisterDiscoveryService _eventDiscoveryService = new();
+    private readonly AppFeatureFlags _features = AppFeatureConfiguration.Load();
     private readonly ObservableCollection<EventRegisterListItem> _eventClientRegisterItems = new();
     private readonly ObservableCollection<EventDiscoveredRegisterListItem> _eventDiscoveredRegisterItems = new();
     private IntPtr _cart = IntPtr.Zero;
@@ -61,6 +62,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ApplyFeatureVisibility();
         LoadAndApplySettings();
 
         CartLinesGrid.ItemsSource = _lines;
@@ -68,8 +70,16 @@ public partial class MainWindow : Window
         InitializeCatalogFromStore();
         RefreshCategoryControls();
         RenderProductButtons();
-        RefreshPresetControls();
-        InitializeAuthUi();
+        if (_features.ShowPresets)
+        {
+            RefreshPresetControls();
+        }
+
+        if (_features.ShowAccounts)
+        {
+            InitializeAuthUi();
+        }
+
         InitializeSalesUi();
         ApplyLocalizedLiterals();
         RefreshQuickTenderButtons();
@@ -202,6 +212,48 @@ public partial class MainWindow : Window
             : new GridLength(0);
         CheckoutControlsRowDefinition.Height = isShopTab ? GridLength.Auto : new GridLength(0);
         SummaryRowDefinition.Height = isShopTab ? GridLength.Auto : new GridLength(0);
+    }
+
+    private void ApplyFeatureVisibility()
+    {
+        SetTabVisibility(PresetsTab, _features.ShowPresets);
+        SetTabVisibility(AccountsTab, _features.ShowAccounts);
+        SetTabVisibility(EventTab, _features.ShowEvent);
+
+        ShowTutorialButton.Visibility = ToVisibility(_features.ShowOnboarding);
+        OpenCustomerDisplayButton.Visibility = ToVisibility(_features.ShowCustomerDisplay);
+        CloseCustomerDisplayButton.Visibility = ToVisibility(_features.ShowCustomerDisplay);
+        EditModeCheckBox.Visibility = ToVisibility(_features.ShowCatalogEditing);
+
+        if (!_features.ShowCatalogEditing)
+        {
+            EditModeCheckBox.IsChecked = false;
+            OpenCatalogEditorButton.Visibility = Visibility.Collapsed;
+            OpenAddItemButton.Visibility = Visibility.Collapsed;
+            OpenCategoryManagerButton.Visibility = Visibility.Collapsed;
+        }
+
+        if (!_features.ShowStartupAnimation)
+        {
+            StartupOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        if (ToolbarTabControl.SelectedItem is not TabItem selectedTab || selectedTab.Visibility != Visibility.Visible)
+        {
+            ToolbarTabControl.SelectedItem = ShopTab;
+        }
+
+        ApplyWorkspaceTabLayout();
+    }
+
+    private static void SetTabVisibility(TabItem tab, bool isVisible)
+    {
+        tab.Visibility = ToVisibility(isVisible);
+    }
+
+    private static Visibility ToVisibility(bool isVisible)
+    {
+        return isVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnRefreshPresetListClick(object sender, RoutedEventArgs e)
@@ -809,13 +861,17 @@ public partial class MainWindow : Window
 
     private void InitializeSalesUi()
     {
-        EventClientRegistersListBox.ItemsSource = _eventClientRegisterItems;
-        DiscoveredRegistersListBox.ItemsSource = _eventDiscoveredRegisterItems;
         EventNameTextBox.Text = DefaultEventName;
         RegisterNameTextBox.Text = DefaultRegisterName;
-        EventNameTextBox.TextChanged += OnEventContextTextChanged;
-        RegisterNameTextBox.TextChanged += OnEventContextTextChanged;
         RefreshPaymentMethodOptions();
+
+        if (_features.ShowEvent)
+        {
+            EventClientRegistersListBox.ItemsSource = _eventClientRegisterItems;
+            DiscoveredRegistersListBox.ItemsSource = _eventDiscoveredRegisterItems;
+            EventNameTextBox.TextChanged += OnEventContextTextChanged;
+            RegisterNameTextBox.TextChanged += OnEventContextTextChanged;
+        }
 
         if (!_saleHistoryStore.TryEnsureInitialized(out var initError))
         {
@@ -824,13 +880,22 @@ public partial class MainWindow : Window
         }
 
         RefreshSaleContextPreview();
-        RefreshEventClientRegisters(updateStatusOnError: true);
         RefreshEventStatisticsUi();
+        if (_features.ShowEvent)
+        {
+            RefreshEventClientRegisters(updateStatusOnError: true);
+        }
+
         RefreshSaleHistoryUi(updateStatusOnError: true);
     }
 
     private void OnEventContextTextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            return;
+        }
+
         if (_eventDiscoveryService.IsAdvertising)
         {
             _eventDiscoveryService.StopAdvertising();
@@ -948,6 +1013,12 @@ public partial class MainWindow : Window
 
     private async void OnScanClientRegistersClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            StatusText.Text = "Event networking is not available in this edition.";
+            return;
+        }
+
         ScanClientRegistersButton.IsEnabled = false;
         EventNetworkStatusText.Text = "Scanning LAN for visible registers...";
 
@@ -976,6 +1047,12 @@ public partial class MainWindow : Window
 
     private void OnAddSelectedClientRegisterClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            StatusText.Text = "Event networking is not available in this edition.";
+            return;
+        }
+
         if (DiscoveredRegistersListBox.SelectedItem is not EventDiscoveredRegisterListItem selected)
         {
             StatusText.Text = "Select a visible client register first.";
@@ -1003,6 +1080,12 @@ public partial class MainWindow : Window
 
     private void OnToggleRegisterAdvertisementClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            StatusText.Text = "Event networking is not available in this edition.";
+            return;
+        }
+
         if (_eventDiscoveryService.IsAdvertising)
         {
             _eventDiscoveryService.StopAdvertising();
@@ -1023,6 +1106,12 @@ public partial class MainWindow : Window
 
     private void OnRefreshClientRegistersClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            StatusText.Text = "Event networking is not available in this edition.";
+            return;
+        }
+
         RefreshEventClientRegisters(updateStatusOnError: true);
         RefreshEventStatisticsUi();
         StatusText.Text = "Client register list refreshed.";
@@ -1030,6 +1119,12 @@ public partial class MainWindow : Window
 
     private void OnRemoveSelectedClientRegisterClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            StatusText.Text = "Event networking is not available in this edition.";
+            return;
+        }
+
         if (EventClientRegistersListBox.SelectedItem is not EventRegisterListItem selected)
         {
             StatusText.Text = "Select a client register to remove.";
@@ -1049,11 +1144,22 @@ public partial class MainWindow : Window
 
     private void OnEventClientRegisterSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_features.ShowEvent)
+        {
+            return;
+        }
+
         RefreshEventStatisticsUi();
     }
 
     private void RefreshEventClientRegisters(bool updateStatusOnError, string? preferredRegisterId = null)
     {
+        if (!_features.ShowEvent)
+        {
+            _eventClientRegisterItems.Clear();
+            return;
+        }
+
         if (!_eventRegisterStore.TryLoad(out var registers, out var error))
         {
             _eventClientRegisterItems.Clear();
@@ -1086,6 +1192,11 @@ public partial class MainWindow : Window
 
     private void RefreshEventStatisticsUi()
     {
+        if (!_features.ShowEvent)
+        {
+            return;
+        }
+
         var currentEvent = GetCurrentEventName();
         var includeShowcase = IncludeShowcaseHistoryCheckBox.IsChecked == true;
 
@@ -1290,10 +1401,17 @@ public partial class MainWindow : Window
 
     private async Task FinishStartupSequenceAsync(bool showFirstRunOnboarding)
     {
-        await Task.Delay(650);
-        await FadeOutOverlayAsync(StartupOverlay);
+        if (_features.ShowStartupAnimation)
+        {
+            await Task.Delay(650);
+            await FadeOutOverlayAsync(StartupOverlay);
+        }
+        else
+        {
+            StartupOverlay.Visibility = Visibility.Collapsed;
+        }
 
-        if (showFirstRunOnboarding && !_settings.HasSeenOnboarding)
+        if (showFirstRunOnboarding && _features.ShowOnboarding && !_settings.HasSeenOnboarding)
         {
             ShowOnboardingOverlay();
         }
@@ -1329,6 +1447,11 @@ public partial class MainWindow : Window
 
     private void OnShowOnboardingClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowOnboarding)
+        {
+            return;
+        }
+
         ShowOnboardingOverlay();
     }
 
@@ -1339,6 +1462,11 @@ public partial class MainWindow : Window
 
     private void ShowOnboardingOverlay()
     {
+        if (!_features.ShowOnboarding)
+        {
+            return;
+        }
+
         OnboardingOverlay.Visibility = Visibility.Visible;
         OnboardingOverlay.Opacity = 1;
     }
@@ -1442,6 +1570,19 @@ public partial class MainWindow : Window
 
     private void OnEditModeChanged(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowCatalogEditing)
+        {
+            EditModeCheckBox.IsChecked = false;
+            OpenCatalogEditorButton.Visibility = Visibility.Collapsed;
+            OpenAddItemButton.Visibility = Visibility.Collapsed;
+            OpenCategoryManagerButton.Visibility = Visibility.Collapsed;
+            CloseCatalogEditor();
+            CloseAddItemOverlay();
+            CloseCategoryManager();
+            CloseAddCategoryOverlay();
+            return;
+        }
+
         var editModeEnabled = IsEditModeEnabled();
         var overlayVisibility = editModeEnabled ? Visibility.Visible : Visibility.Collapsed;
 
@@ -2952,13 +3093,29 @@ public partial class MainWindow : Window
         Title = L("main.title");
         TranslateLiterals(this);
         RefreshPaymentMethodOptions();
-        RefreshAccountRoleOptions();
-        RefreshAuthUi(loadAccounts: false);
-        UpdateRegisterAdvertisementUi();
-        RefreshPresetControls(_activePresetId);
-        RenderOnlinePresetOptions(ResolveSelectedOnlinePresetId());
+        if (_features.ShowAccounts)
+        {
+            RefreshAccountRoleOptions();
+            RefreshAuthUi(loadAccounts: false);
+        }
+
+        if (_features.ShowEvent)
+        {
+            UpdateRegisterAdvertisementUi();
+        }
+
+        if (_features.ShowPresets)
+        {
+            RefreshPresetControls(_activePresetId);
+            RenderOnlinePresetOptions(ResolveSelectedOnlinePresetId());
+        }
+
         RenderCategoryButtons();
-        RefreshEditorList();
+        if (_features.ShowCatalogEditing)
+        {
+            RefreshEditorList();
+        }
+
         RenderProductButtons();
     }
 
@@ -3117,11 +3274,17 @@ public partial class MainWindow : Window
 
     private bool IsEditModeEnabled()
     {
-        return EditModeCheckBox.IsChecked == true;
+        return _features.ShowCatalogEditing && EditModeCheckBox.IsChecked == true;
     }
 
     private void OnOpenCustomerDisplayClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowCustomerDisplay)
+        {
+            StatusText.Text = "Customer display is not available in this edition.";
+            return;
+        }
+
         if (_customerDisplayWindow is { IsVisible: true })
         {
             if (_customerDisplayWindow.WindowState == WindowState.Minimized)
@@ -3148,6 +3311,11 @@ public partial class MainWindow : Window
 
     private void OnCloseCustomerDisplayClick(object sender, RoutedEventArgs e)
     {
+        if (!_features.ShowCustomerDisplay)
+        {
+            return;
+        }
+
         CloseCustomerDisplay();
     }
 

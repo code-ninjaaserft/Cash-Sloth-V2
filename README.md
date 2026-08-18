@@ -39,6 +39,12 @@ dotnet build src/CashSloth.App/CashSloth.App.csproj
 The native build outputs `CashSlothCore.dll` under `build/core/bin/<Configuration>`, and the WPF project copies it to its output folder on build.
 The release executable is `CSV2.exe` in `src/CashSloth.App/bin/Release/net8.0-windows/`.
 
+### Zamme Aesse package
+```powershell
+pwsh ./tools/package_zamme_aesse.ps1
+```
+This creates a Windows ZIP under `artifacts/zamme-aesse/`. The package includes `CashSloth.Features.json`, which keeps only Shop/catalog, History, and Settings visible. Features can be unlocked on a controlled device by changing that JSON file next to `CSV2.exe` and restarting the app.
+
 ### Visual Studio F5
 1. Open `CashSloth.sln`.
 2. Set `CashSloth.App` as the startup project (default).
@@ -64,6 +70,7 @@ The MVP stack is functional end-to-end:
 - Showcase sales can be recorded without appearing in default history/statistics unless explicitly included.
 - Event mode can discover visible client registers on the LAN, persist added client registers, remove them again, and show event totals plus selected-register statistics.
 - Startup uses the CashSloth logo, a short launch animation, and first-run onboarding that can be reopened from Settings.
+- A lean Zamme Aesse package can hide unfinished or unnecessary features via `CashSloth.Features.json`.
 - Native contract tests cover version, catalog, cart, and payment behavior via CTest.
 
 ## Roadmap

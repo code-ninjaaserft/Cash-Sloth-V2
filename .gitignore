@@ -1,6 +1,7 @@
 # Build outputs and generated CMake state
 build/
 out/
+artifacts/
 **/build/
 cmake-build-*/
 CMakeCache.txt
