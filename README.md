@@ -43,7 +43,7 @@ The release executable is `CSV2.exe` in `src/CashSloth.App/bin/Release/net8.0-wi
 ```powershell
 pwsh ./tools/package_zamme_aesse.ps1
 ```
-This creates a Windows ZIP under `artifacts/zamme-aesse/`. The package includes `CashSloth.Features.json`, which keeps only Shop/catalog, History, and Settings visible. Features can be unlocked on a controlled device by changing that JSON file next to `CSV2.exe` and restarting the app.
+This creates a Windows ZIP under `artifacts/zamme-aesse/`. The package includes `CashSloth.Features.json`, which keeps only Shop/catalog, History, and Settings visible, keeps the laptop awake, starts in soft kiosk mode, requires a kiosk exit password, and locks Windows when CashSloth exits. Features can be unlocked on a controlled device by changing that JSON file next to `CSV2.exe` and restarting the app.
 
 ### Visual Studio F5
 1. Open `CashSloth.sln`.

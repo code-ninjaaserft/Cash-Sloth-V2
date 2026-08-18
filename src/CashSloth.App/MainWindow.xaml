@@ -4,7 +4,8 @@
         Title="CashSloth POS" Height="720" Width="1240"
         Icon="Assets/CashSlothLogo.png"
         Loaded="OnWindowLoaded"
-        Closing="OnWindowClosing">
+        Closing="OnWindowClosing"
+        PreviewKeyDown="OnWindowPreviewKeyDown">
   <Grid Margin="16">
     <Grid.RowDefinitions>
       <RowDefinition x:Name="ToolbarRowDefinition" Height="66" />
@@ -74,6 +75,13 @@
                     Width="130"
                     Height="34"
                     Click="OnShowOnboardingClick" />
+            <Button x:Name="ExitKioskButton"
+                    Content="Exit kiosk"
+                    Width="110"
+                    Height="34"
+                    Margin="8,0,0,0"
+                    Visibility="Collapsed"
+                    Click="OnExitKioskClick" />
           </WrapPanel>
         </TabItem>
 
@@ -1262,6 +1270,76 @@
             </WrapPanel>
           </Grid>
         </ScrollViewer>
+      </Border>
+    </Border>
+
+    <Border x:Name="KioskExitOverlay"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.RowSpan="5"
+            Grid.ColumnSpan="2"
+            Panel.ZIndex="90"
+            Background="#AA000000"
+            Visibility="Collapsed">
+      <Border Width="460"
+              Padding="18"
+              Background="{DynamicResource AppSurfaceBrush}"
+              BorderBrush="{DynamicResource AppControlBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+        <StackPanel>
+          <TextBlock x:Name="KioskExitTitleText"
+                     Text="Exit kiosk"
+                     FontSize="24"
+                     FontWeight="SemiBold"
+                     Margin="0,0,0,8" />
+          <TextBlock x:Name="KioskExitHintText"
+                     Text="Enter the kiosk exit password to close CashSloth."
+                     TextWrapping="Wrap"
+                     Opacity="0.85"
+                     Margin="0,0,0,12" />
+
+          <TextBlock Text="Kiosk password" Margin="0,0,0,4" />
+          <PasswordBox x:Name="KioskExitPasswordBox"
+                       Height="34"
+                       VerticalContentAlignment="Center" />
+
+          <StackPanel x:Name="KioskExitConfirmPasswordPanel"
+                      Visibility="Collapsed"
+                      Margin="0,10,0,0">
+            <TextBlock Text="Confirm kiosk password" Margin="0,0,0,4" />
+            <PasswordBox x:Name="KioskExitConfirmPasswordBox"
+                         Height="34"
+                         VerticalContentAlignment="Center" />
+          </StackPanel>
+
+          <TextBlock x:Name="KioskExitLockNoteText"
+                     Text="After closing, Windows will be locked."
+                     TextWrapping="Wrap"
+                     Opacity="0.85"
+                     Margin="0,12,0,0" />
+          <TextBlock x:Name="KioskExitErrorText"
+                     Foreground="#E74C3C"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     Margin="0,10,0,0" />
+
+          <WrapPanel HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="KioskExitCancelButton"
+                    Content="Cancel"
+                    Width="100"
+                    Height="38"
+                    Click="OnCancelKioskExitClick" />
+            <Button x:Name="KioskExitConfirmButton"
+                    Content="Unlock exit"
+                    Width="120"
+                    Height="38"
+                    Margin="8,0,0,0"
+                    Click="OnConfirmKioskExitClick" />
+          </WrapPanel>
+        </StackPanel>
       </Border>
     </Border>
 

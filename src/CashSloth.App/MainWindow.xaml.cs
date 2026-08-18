@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Screen = System.Windows.Forms.Screen;
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
     private readonly EventRegisterStore _eventRegisterStore = new();
     private readonly EventRegisterDiscoveryService _eventDiscoveryService = new();
     private readonly AppFeatureFlags _features = AppFeatureConfiguration.Load();
+    private readonly WindowsPowerGuard _powerGuard = new();
     private readonly ObservableCollection<EventRegisterListItem> _eventClientRegisterItems = new();
     private readonly ObservableCollection<EventDiscoveredRegisterListItem> _eventDiscoveredRegisterItems = new();
     private IntPtr _cart = IntPtr.Zero;
@@ -58,11 +60,13 @@ public partial class MainWindow : Window
     private int _quantityEditCurrentQty;
     private string _quantityEditItemId = string.Empty;
     private string _quantityEditItemLabel = string.Empty;
+    private bool _kioskExitAuthorized;
 
     public MainWindow()
     {
         InitializeComponent();
         ApplyFeatureVisibility();
+        ApplyDeviceModeFeatures();
         LoadAndApplySettings();
 
         CartLinesGrid.ItemsSource = _lines;
@@ -221,6 +225,7 @@ public partial class MainWindow : Window
         SetTabVisibility(EventTab, _features.ShowEvent);
 
         ShowTutorialButton.Visibility = ToVisibility(_features.ShowOnboarding);
+        ExitKioskButton.Visibility = ToVisibility(_features.KioskMode);
         OpenCustomerDisplayButton.Visibility = ToVisibility(_features.ShowCustomerDisplay);
         CloseCustomerDisplayButton.Visibility = ToVisibility(_features.ShowCustomerDisplay);
         EditModeCheckBox.Visibility = ToVisibility(_features.ShowCatalogEditing);
@@ -244,6 +249,25 @@ public partial class MainWindow : Window
         }
 
         ApplyWorkspaceTabLayout();
+    }
+
+    private void ApplyDeviceModeFeatures()
+    {
+        if (_features.KeepLaptopAwake && !_powerGuard.TryKeepAwake(out var keepAwakeError))
+        {
+            StatusText.Text = $"Keep-awake could not be enabled: {keepAwakeError ?? "unknown error"}";
+        }
+
+        if (!_features.KioskMode)
+        {
+            return;
+        }
+
+        WindowStyle = WindowStyle.None;
+        ResizeMode = ResizeMode.NoResize;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        WindowState = WindowState.Maximized;
+        Topmost = true;
     }
 
     private static void SetTabVisibility(TabItem tab, bool isVisible)
@@ -1455,6 +1479,127 @@ public partial class MainWindow : Window
         ShowOnboardingOverlay();
     }
 
+    private void OnExitKioskClick(object sender, RoutedEventArgs e)
+    {
+        ShowKioskExitPrompt();
+    }
+
+    private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!_features.KioskMode)
+        {
+            return;
+        }
+
+        if (e.Key == Key.System && e.SystemKey == Key.F4)
+        {
+            e.Handled = true;
+            ShowKioskExitPrompt();
+            return;
+        }
+
+        if (e.Key == Key.Escape && KioskExitOverlay.Visibility == Visibility.Visible)
+        {
+            e.Handled = true;
+            HideKioskExitPrompt();
+        }
+    }
+
+    private void OnCancelKioskExitClick(object sender, RoutedEventArgs e)
+    {
+        HideKioskExitPrompt();
+    }
+
+    private void OnConfirmKioskExitClick(object sender, RoutedEventArgs e)
+    {
+        if (!_features.KioskMode)
+        {
+            AuthorizeKioskExitAndClose();
+            return;
+        }
+
+        if (!_features.RequireKioskExitPassword)
+        {
+            AuthorizeKioskExitAndClose();
+            return;
+        }
+
+        var password = KioskExitPasswordBox.Password;
+        if (string.IsNullOrWhiteSpace(_settings.KioskExitPasswordHash))
+        {
+            var confirmedPassword = KioskExitConfirmPasswordBox.Password;
+            if (password.Length < 4)
+            {
+                KioskExitErrorText.Text = L("status.kiosk_password_too_short");
+                return;
+            }
+
+            if (!string.Equals(password, confirmedPassword, StringComparison.Ordinal))
+            {
+                KioskExitErrorText.Text = L("status.kiosk_password_mismatch");
+                return;
+            }
+
+            _settings = _settings with { KioskExitPasswordHash = KioskExitPasswordHasher.Hash(password) };
+            if (!_settingsStore.TrySave(_settings, out var saveError))
+            {
+                KioskExitErrorText.Text = Lf("status.settings_save_failed", saveError ?? string.Empty);
+                return;
+            }
+
+            AuthorizeKioskExitAndClose();
+            return;
+        }
+
+        if (!KioskExitPasswordHasher.Verify(password, _settings.KioskExitPasswordHash))
+        {
+            KioskExitErrorText.Text = L("status.kiosk_wrong_password");
+            KioskExitPasswordBox.SelectAll();
+            KioskExitPasswordBox.Focus();
+            return;
+        }
+
+        AuthorizeKioskExitAndClose();
+    }
+
+    private void ShowKioskExitPrompt()
+    {
+        if (!_features.KioskMode)
+        {
+            return;
+        }
+
+        var requiresPassword = _features.RequireKioskExitPassword;
+        var setupPassword = requiresPassword && string.IsNullOrWhiteSpace(_settings.KioskExitPasswordHash);
+        KioskExitTitleText.Text = setupPassword ? L("kiosk.set_exit_password_title") : L("kiosk.exit_title");
+        KioskExitHintText.Text = setupPassword ? L("kiosk.set_exit_password_hint") : L("kiosk.exit_password_hint");
+        KioskExitConfirmButton.Content = setupPassword ? L("button.set_password_exit") : L("button.unlock_exit");
+        KioskExitLockNoteText.Visibility = ToVisibility(_features.LockWindowsOnExit);
+        KioskExitLockNoteText.Text = L("kiosk.lock_note");
+        KioskExitConfirmPasswordPanel.Visibility = ToVisibility(setupPassword);
+        KioskExitPasswordBox.Password = string.Empty;
+        KioskExitConfirmPasswordBox.Password = string.Empty;
+        KioskExitErrorText.Text = string.Empty;
+        KioskExitOverlay.Visibility = Visibility.Visible;
+        KioskExitPasswordBox.Focus();
+    }
+
+    private void HideKioskExitPrompt()
+    {
+        KioskExitOverlay.Visibility = Visibility.Collapsed;
+        KioskExitPasswordBox.Password = string.Empty;
+        KioskExitConfirmPasswordBox.Password = string.Empty;
+        KioskExitErrorText.Text = string.Empty;
+    }
+
+    private void AuthorizeKioskExitAndClose()
+    {
+        _kioskExitAuthorized = true;
+        Topmost = false;
+        HideKioskExitPrompt();
+        Close();
+    }
+
     private void OnCloseOnboardingClick(object sender, RoutedEventArgs e)
     {
         CloseOnboardingOverlay(markSeen: true);
@@ -1488,6 +1633,13 @@ public partial class MainWindow : Window
 
     private void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (_features.KioskMode && !_kioskExitAuthorized)
+        {
+            e.Cancel = true;
+            ShowKioskExitPrompt();
+            return;
+        }
+
         CloseOnboardingOverlay(markSeen: false);
         CloseCatalogEditor();
         CloseAddItemOverlay();
@@ -1496,6 +1648,7 @@ public partial class MainWindow : Window
         CloseCartQuantityOverlay();
         CloseCustomerDisplay();
         _eventDiscoveryService.Dispose();
+        _powerGuard.Dispose();
 
         if (_cart != IntPtr.Zero)
         {
@@ -1507,6 +1660,11 @@ public partial class MainWindow : Window
         {
             NativeMethods.cs_shutdown();
             _coreInitialized = false;
+        }
+
+        if (_features.LockWindowsOnExit)
+        {
+            WindowsSessionSecurity.TryLockWorkstation(out _);
         }
     }
 

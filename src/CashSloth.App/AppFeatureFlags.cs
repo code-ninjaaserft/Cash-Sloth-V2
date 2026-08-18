@@ -12,7 +12,11 @@ internal sealed record AppFeatureFlags(
     bool ShowCustomerDisplay,
     bool ShowCatalogEditing,
     bool ShowOnboarding,
-    bool ShowStartupAnimation)
+    bool ShowStartupAnimation,
+    bool KeepLaptopAwake,
+    bool KioskMode,
+    bool RequireKioskExitPassword,
+    bool LockWindowsOnExit)
 {
     internal static AppFeatureFlags Full { get; } = new(
         "full",
@@ -22,7 +26,11 @@ internal sealed record AppFeatureFlags(
         ShowCustomerDisplay: true,
         ShowCatalogEditing: true,
         ShowOnboarding: true,
-        ShowStartupAnimation: true);
+        ShowStartupAnimation: true,
+        KeepLaptopAwake: false,
+        KioskMode: false,
+        RequireKioskExitPassword: false,
+        LockWindowsOnExit: false);
 }
 
 internal static class AppFeatureConfiguration
@@ -77,7 +85,11 @@ internal static class AppFeatureConfiguration
                 document.ShowCustomerDisplay ?? fallback.ShowCustomerDisplay,
                 document.ShowCatalogEditing ?? fallback.ShowCatalogEditing,
                 document.ShowOnboarding ?? fallback.ShowOnboarding,
-                document.ShowStartupAnimation ?? fallback.ShowStartupAnimation);
+                document.ShowStartupAnimation ?? fallback.ShowStartupAnimation,
+                document.KeepLaptopAwake ?? fallback.KeepLaptopAwake,
+                document.KioskMode ?? fallback.KioskMode,
+                document.RequireKioskExitPassword ?? fallback.RequireKioskExitPassword,
+                document.LockWindowsOnExit ?? fallback.LockWindowsOnExit);
         }
         catch
         {
@@ -100,4 +112,8 @@ internal sealed record AppFeatureFlagsDocument(
     [property: JsonPropertyName("show_customer_display")] bool? ShowCustomerDisplay,
     [property: JsonPropertyName("show_catalog_editing")] bool? ShowCatalogEditing,
     [property: JsonPropertyName("show_onboarding")] bool? ShowOnboarding,
-    [property: JsonPropertyName("show_startup_animation")] bool? ShowStartupAnimation);
+    [property: JsonPropertyName("show_startup_animation")] bool? ShowStartupAnimation,
+    [property: JsonPropertyName("keep_laptop_awake")] bool? KeepLaptopAwake,
+    [property: JsonPropertyName("kiosk_mode")] bool? KioskMode,
+    [property: JsonPropertyName("require_kiosk_exit_password")] bool? RequireKioskExitPassword,
+    [property: JsonPropertyName("lock_windows_on_exit")] bool? LockWindowsOnExit);

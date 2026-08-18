@@ -17,4 +17,4 @@ Current MVP capabilities:
 - track payment method, tips, showcase mode, recent sales, and basic statistics
 - discover visible client registers on the LAN, add/remove them per event, and view total or selected-register statistics
 - show the CashSloth logo in app chrome/startup, run first-start onboarding, and reopen the tutorial from Settings
-- load optional feature flags from `CashSloth.Features.json` for lean event packages such as Zamme Aesse
+- load optional feature flags from `CashSloth.Features.json` for lean event packages such as Zamme Aesse, including keep-awake, soft kiosk mode, password-gated exit, and Windows lock on exit

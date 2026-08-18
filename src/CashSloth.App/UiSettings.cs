@@ -31,9 +31,19 @@ internal enum UiThemeMode
     Dark
 }
 
-internal sealed record AppSettings(UiLanguage Language, UiCurrency Currency, UiThemeMode Theme, bool HasSeenOnboarding)
+internal sealed record AppSettings(
+    UiLanguage Language,
+    UiCurrency Currency,
+    UiThemeMode Theme,
+    bool HasSeenOnboarding,
+    string KioskExitPasswordHash)
 {
-    internal static AppSettings Default { get; } = new(UiLanguage.EnglishUk, UiCurrency.Chf, UiThemeMode.System, false);
+    internal static AppSettings Default { get; } = new(
+        UiLanguage.EnglishUk,
+        UiCurrency.Chf,
+        UiThemeMode.System,
+        false,
+        string.Empty);
 }
 
 internal sealed record UiOption<T>(T Value, string Label)
@@ -46,7 +56,7 @@ internal sealed record UiOption<T>(T Value, string Label)
 
 internal sealed class AppSettingsStore
 {
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -93,7 +103,12 @@ internal sealed class AppSettingsStore
                 theme = AppSettings.Default.Theme;
             }
 
-            return new AppSettings(language, currency, theme, document.HasSeenOnboarding);
+            return new AppSettings(
+                language,
+                currency,
+                theme,
+                document.HasSeenOnboarding,
+                document.KioskExitPasswordHash?.Trim() ?? string.Empty);
         }
         catch
         {
@@ -108,7 +123,8 @@ internal sealed class AppSettingsStore
             settings.Language.ToString(),
             settings.Currency.ToString(),
             settings.Theme.ToString(),
-            settings.HasSeenOnboarding);
+            settings.HasSeenOnboarding,
+            settings.KioskExitPasswordHash);
 
         try
         {
@@ -209,6 +225,19 @@ internal static class UiLocalizer
         ["settings.currency"] = new("Currency", "Waehrung", "Monnaie", "Valuta"),
         ["settings.theme"] = new("UI Color", "UI-Farbe", "Couleur UI", "Colur UI"),
         ["button.show_tutorial"] = new("Show tutorial", "Tutorial anzeigen", "Afficher tutoriel", "Mussar tutorial"),
+        ["button.exit_kiosk"] = new("Exit kiosk", "Kiosk beenden", "Quitter kiosque", "Terminar kiosk"),
+        ["button.unlock_exit"] = new("Unlock exit", "Beenden freigeben", "Debloquer sortie", "Lubir sortida"),
+        ["button.set_password_exit"] = new("Set and exit", "Setzen und beenden", "Definir et quitter", "Metter e terminar"),
+        ["kiosk.exit_title"] = new("Exit kiosk", "Kiosk beenden", "Quitter kiosque", "Terminar kiosk"),
+        ["kiosk.set_exit_password_title"] = new("Set kiosk exit password", "Kiosk-Exit-Passwort setzen", "Definir mot de passe kiosque", "Metter password kiosk"),
+        ["kiosk.exit_password_hint"] = new("Enter the kiosk exit password to close CashSloth.", "Kiosk-Exit-Passwort eingeben, um CashSloth zu schliessen.", "Entrer le mot de passe kiosque pour fermer CashSloth.", "Endatar il password kiosk per serrar CashSloth."),
+        ["kiosk.set_exit_password_hint"] = new("Set the kiosk exit password. Future exits require this password.", "Kiosk-Exit-Passwort setzen. Spaeteres Beenden braucht dieses Passwort.", "Definir le mot de passe kiosque. Les prochaines sorties le demanderont.", "Metter il password kiosk. Sortidas futuras drovan quei password."),
+        ["kiosk.password"] = new("Kiosk password", "Kiosk-Passwort", "Mot de passe kiosque", "Password kiosk"),
+        ["kiosk.confirm_password"] = new("Confirm kiosk password", "Kiosk-Passwort bestaetigen", "Confirmer mot de passe kiosque", "Confirmar password kiosk"),
+        ["kiosk.lock_note"] = new("After closing, Windows will be locked.", "Nach dem Beenden wird Windows gesperrt.", "Apres fermeture, Windows sera verrouille.", "Suenter serrar vegn Windows bloccau."),
+        ["status.kiosk_password_too_short"] = new("Use at least 4 characters.", "Mindestens 4 Zeichen verwenden.", "Utiliser au moins 4 caracteres.", "Usar silmeins 4 caracters."),
+        ["status.kiosk_password_mismatch"] = new("The passwords do not match.", "Die Passwoerter stimmen nicht ueberein.", "Les mots de passe ne correspondent pas.", "Ils passwords corrispundan buc."),
+        ["status.kiosk_wrong_password"] = new("Wrong kiosk password.", "Falsches Kiosk-Passwort.", "Mot de passe kiosque incorrect.", "Password kiosk falliu."),
         ["startup.subtitle"] = new("Point of Sale", "Kassensystem", "Point de vente", "Punct da vendita"),
         ["tab.shop"] = new("Shop", "Shop", "Vente", "Shop"),
         ["tab.settings"] = new("Settings", "Einstellungen", "Parametres", "Settings"),
@@ -574,4 +603,5 @@ internal sealed record AppSettingsDocument(
     [property: JsonPropertyName("language")] string Language,
     [property: JsonPropertyName("currency")] string Currency,
     [property: JsonPropertyName("theme")] string Theme,
-    [property: JsonPropertyName("has_seen_onboarding")] bool HasSeenOnboarding = false);
+    [property: JsonPropertyName("has_seen_onboarding")] bool HasSeenOnboarding = false,
+    [property: JsonPropertyName("kiosk_exit_password_hash")] string KioskExitPasswordHash = "");

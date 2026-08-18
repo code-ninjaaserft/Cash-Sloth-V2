@@ -23,6 +23,10 @@ public sealed class AppFeatureConfigurationTests
             Assert.True(flags.ShowCatalogEditing);
             Assert.True(flags.ShowOnboarding);
             Assert.True(flags.ShowStartupAnimation);
+            Assert.False(flags.KeepLaptopAwake);
+            Assert.False(flags.KioskMode);
+            Assert.False(flags.RequireKioskExitPassword);
+            Assert.False(flags.LockWindowsOnExit);
         }
         finally
         {
@@ -46,7 +50,11 @@ public sealed class AppFeatureConfigurationTests
                   "show_customer_display": false,
                   "show_catalog_editing": true,
                   "show_onboarding": false,
-                  "show_startup_animation": true
+                  "show_startup_animation": true,
+                  "keep_laptop_awake": true,
+                  "kiosk_mode": true,
+                  "require_kiosk_exit_password": true,
+                  "lock_windows_on_exit": true
                 }
                 """);
 
@@ -60,6 +68,10 @@ public sealed class AppFeatureConfigurationTests
             Assert.True(flags.ShowCatalogEditing);
             Assert.False(flags.ShowOnboarding);
             Assert.True(flags.ShowStartupAnimation);
+            Assert.True(flags.KeepLaptopAwake);
+            Assert.True(flags.KioskMode);
+            Assert.True(flags.RequireKioskExitPassword);
+            Assert.True(flags.LockWindowsOnExit);
         }
         finally
         {
