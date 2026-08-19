@@ -50,15 +50,19 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE."
 }
 
-$coreDll = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA "CashSloth\native-build") -Recurse -Filter "CashSlothCore.dll" -ErrorAction SilentlyContinue |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
+$coreDll = Join-Path $publishDir "CashSlothCore.dll"
+if (-not (Test-Path -LiteralPath $coreDll)) {
+    $coreDllCandidate = Get-ChildItem -Path (Join-Path $repoRoot "src\CashSloth.App\bin\Release") -Recurse -Filter "CashSlothCore.dll" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
 
-if ($null -eq $coreDll) {
-    throw "CashSlothCore.dll was not found after publish."
+    if ($null -eq $coreDllCandidate) {
+        throw "CashSlothCore.dll was not copied to the publish output and no Release build copy was found."
+    }
+
+    Copy-Item -LiteralPath $coreDllCandidate.FullName -Destination $coreDll -Force
 }
 
-Copy-Item -LiteralPath $coreDll.FullName -Destination (Join-Path $publishDir "CashSlothCore.dll") -Force
 Copy-Item -LiteralPath $featureConfig -Destination (Join-Path $publishDir "CashSloth.Features.json") -Force
 
 $notes = @"

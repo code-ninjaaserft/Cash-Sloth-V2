@@ -43,7 +43,7 @@
     <UseNinja>false</UseNinja>
     <UseNinja Condition="'$(UseVCVars)' == 'true' and Exists('$(CMakeNinjaExe)')">true</UseNinja>
 
-    <CashSlothCoreBuildRoot>$(LocalAppDataDir)\CashSloth\native-build</CashSlothCoreBuildRoot>
+    <CashSlothCoreBuildRoot>$(MSBuildProjectDirectory)\obj\native-core\$(Configuration)</CashSlothCoreBuildRoot>
     <CashSlothCoreBuildDir>$(CashSlothCoreBuildRoot)\core</CashSlothCoreBuildDir>
     <CashSlothCoreBuildDir Condition="'$(UseNinja)' == 'true'">$(CashSlothCoreBuildRoot)\core-ninja</CashSlothCoreBuildDir>
 
