@@ -64,6 +64,10 @@
     <Resource Include="Assets\CashSlothLogo.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="CashSloth.Features.zamme-aesse.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <Target Name="BuildNativeCore" BeforeTargets="CopyCashSlothCore"
           Condition="'$(OS)' == 'Windows_NT' and '$(SkipNativeCoreBuild)' != 'true'">
     <Message Importance="high" Text="Building CashSlothCore via CMake (Configuration=$(Configuration), CMakeExe=$(CMakeExe), UseVCVars=$(UseVCVars), UseNinja=$(UseNinja), BuildDir=$(CashSlothCoreBuildDir))." />

@@ -47,13 +47,14 @@ internal static class AppFeatureConfiguration
     internal static AppFeatureFlags Load()
     {
         var overridePath = Environment.GetEnvironmentVariable("CASH_SLOTH_FEATURES");
+        var profilePath = ResolveProfilePath(Environment.GetEnvironmentVariable("CASH_SLOTH_PROFILE"));
         var localPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "CashSloth",
             FileName);
         var appPath = Path.Combine(AppContext.BaseDirectory, FileName);
 
-        foreach (var path in new[] { overridePath, localPath, appPath })
+        foreach (var path in new[] { overridePath, profilePath, localPath, appPath })
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
@@ -64,6 +65,27 @@ internal static class AppFeatureConfiguration
         }
 
         return AppFeatureFlags.Full;
+    }
+
+    internal static string? ResolveProfilePath(string? profile)
+    {
+        var normalized = profile?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        var safeProfile = string.Concat(normalized.Where(character =>
+            char.IsAsciiLetterOrDigit(character) ||
+            character == '-' ||
+            character == '_' ||
+            character == '.'));
+        if (string.IsNullOrWhiteSpace(safeProfile))
+        {
+            return null;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, $"CashSloth.Features.{safeProfile}.json");
     }
 
     internal static AppFeatureFlags LoadFromFile(string filePath, AppFeatureFlags fallback)

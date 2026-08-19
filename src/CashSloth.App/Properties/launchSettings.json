@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "CashSloth.App": {
+      "commandName": "Project"
+    },
+    "CashSloth Zamme Aesse": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "CASH_SLOTH_PROFILE": "zamme-aesse"
+      }
+    }
+  }
+}

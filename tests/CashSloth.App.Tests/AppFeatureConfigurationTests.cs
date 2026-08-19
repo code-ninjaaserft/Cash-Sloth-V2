@@ -79,6 +79,15 @@ public sealed class AppFeatureConfigurationTests
         }
     }
 
+    [Fact]
+    public void ProfilePathUsesSanitizedProfileName()
+    {
+        var path = AppFeatureConfiguration.ResolveProfilePath(" zamme-aesse!! ");
+
+        Assert.NotNull(path);
+        Assert.EndsWith("CashSloth.Features.zamme-aesse.json", path, StringComparison.Ordinal);
+    }
+
     private static string CreateTempDir()
     {
         var path = Path.Combine(Path.GetTempPath(), "cashsloth-tests", Guid.NewGuid().ToString("N"));
