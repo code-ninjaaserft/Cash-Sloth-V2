@@ -8,6 +8,8 @@ using CashSloth.Server.Infrastructure;
 using CashSloth.Server.Security;
 using CashSloth.Server.Services;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 
 namespace CashSloth.Server.Tests;
@@ -29,7 +31,7 @@ public sealed class ApiIntegrationTests
         };
         var paths = new ServerPaths(root);
         var settingsStore = new ServerSettingsStore(Path.Combine(root, "settings.json"));
-        var app = ServerHostFactory.Build(settings, paths, settingsStore, new ServerLogBuffer());
+        var app = ServerHostFactory.Build(settings, paths, settingsStore, new ServerLogBuffer(), localPort: 0);
         try
         {
             using (var scope = app.Services.CreateScope())
@@ -37,7 +39,10 @@ public sealed class ApiIntegrationTests
                 await DatabaseBootstrapper.InitializeAsync(scope.ServiceProvider.GetRequiredService<ServerDbContext>());
             }
             await app.StartAsync();
-            using var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:5080/") };
+            var addresses = app.Services.GetRequiredService<IServer>()
+                .Features.Get<IServerAddressesFeature>()?.Addresses;
+            var address = Assert.Single(addresses ?? []);
+            using var client = new HttpClient { BaseAddress = new Uri(address.TrimEnd('/') + "/") };
 
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("health/live")).StatusCode);
             var anonymous = await client.GetAsync("api/v1/presets");

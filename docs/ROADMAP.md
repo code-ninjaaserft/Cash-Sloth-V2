@@ -1,66 +1,57 @@
 # Cash-Sloth v2 Roadmap
 
-_Last updated: 2026-05-27_
+_Last updated: 2026-08-19_
 
-## Architecture summary
-Cash-Sloth v2 is layered as **Core (C++) -> C-API (C ABI) -> WPF (.NET)**. The C++ core owns business rules and data shaping, the C-API exposes a stable boundary (JSON/`char*` with explicit free patterns), and the WPF app focuses on workflow and presentation.
+This roadmap reflects the repository as it exists now. Historical QEN-GV dates and checklists remain available for release evidence, but they are not the active architecture plan.
 
-## Always Validate & Update
-Every change should be accompanied by a quick validation pass (tests/builds if available) and a documentation check to keep this repo honest about what exists versus what is planned.
+## Current architecture baseline
 
-## Milestones overview
-Dates are planning targets and may be adjusted.
+- `CashSloth.Core`: native catalog/cart/payment rules behind the documented C ABI.
+- `CashSloth.App`: .NET 10 WPF POS with local operational persistence.
+- `CashSloth.Contracts`: shared central API v1 records and roles.
+- `CashSloth.Server`: Windows WPF control center plus loopback ASP.NET Core host, Cloudflare Tunnel integration, EF Core/SQLite, identity, audit, and backups.
+- Central server v1 owns accounts, devices, central presets, exchange rates, and translations. Sales/orders/payment state are explicitly not centralized yet.
 
-### QEN-GV (Mid-Mar 2026)
-**Target date:** 2026-03-14  
-Focus: stabilize the shipped MVP workflows for event readiness.
+## Phase 1: central server v1 integration — implemented
 
-**Phase status (as of 2026-03-06)**
-1. **Foundation stability** (`done`)
-   - Core DLL + WPF app build reliably on Windows.
-   - CI passes on `main` without manual patching.
-2. **C-API hardening** (`done`)
-   - Catalog, cart, and payment contracts are stable and documented.
-   - Contract tests cover baseline happy path and invalid-input paths.
-3. **POS workflow readiness** (`done`, pending final manual rehearsal)
-   - Product/category interactions and cart/payment flow are implemented in MVP usage.
-   - Catalog edit flow is deterministic (cart reset + refresh after catalog updates).
-4. **Customer display rehearsal** (`in progress`)
-   - Window behavior is implemented and wired; packaged smoke verification is pending.
-5. **Release rehearsal** (`in progress`)
-   - Tag-based packaging produced release artifact (`v2.0.0`) on 2026-03-06.
-   - Packaged-output smoke run notes and final team sign-off are still open.
+- [x] Central server control application and API v1
+- [x] First-admin setup without default credentials
+- [x] Trust export/import and fingerprint confirmation
+- [x] Per-installation pairing and device proof-of-possession
+- [x] Central registration, approval, roles, login, refresh, logout, and password changes
+- [x] Authenticated versioned presets and active-preset cache
+- [x] Central exchange-rate/translation reference endpoints
+- [x] Audit, backups, restore, tunnel lifecycle, and server packaging foundation
+- [x] Removal of the local WPF account store and old anonymous preset API/client
 
-### Mobile Event Rollout (Early Jul 2026)
-**Target date:** 2026-07-05  
-Focus: complete mobile event operations (ordering + payment), user/account rollout, and reporting polish.
+## Phase 2: August deployment readiness — active
 
-**Roadmap cadence (toward 2026-07-05)**
-1. **2026-05-27 to 2026-06-05: mobile ordering host flow**
-   - Restaurant/festwirtschaft mode with Android order submission.
-   - Host device intake and order processing workflow.
-2. **2026-06-06 to 2026-06-12: payment + tip support**
-   - Android payment flow with RFID/NFC + TWINT sync to host POS.
-   - Tip handling in checkout/statistics model.
-3. **2026-06-13 to 2026-06-19: accounts on all devices**
-   - Self-service account creation on any device.
-   - Admin-only user controls (role promotion and controlled user management).
-4. **2026-06-20 to 2026-06-26: history/statistics + showcase boundaries**
-   - History and statistics for completed real sales.
-   - Showcase mode excluded from history and statistics.
-   - Implemented local WPF host slice on 2026-05-27: completed-sale SQLite history, event/register/user metadata, tip totals, and showcase exclusion by default.
-5. **2026-06-27 to 2026-07-02: event multi-register analytics**
-   - Event mode with parallel tills/users (for example Kasse 1 / Kasse 2).
-   - Event analytics by register/user and aggregated event totals.
-6. **2026-07-03 to 2026-07-05: UX finish**
-   - Tutorial/onboarding flow.
-   - Startup animation and targeted UI polish (including window icon behavior on Windows).
+- [ ] Rehearse a clean install of server and POS on target Windows hardware.
+- [ ] Validate Cloudflare tunnel setup, trust/pairing, approval, temporary-password, role-change, device-block, and offline/reconnect flows.
+- [ ] Complete Z'Ämme ässe packaging smoke tests and clearly identify the packaged branch/profile.
+- [ ] Finish touch/responsive layout and central-flow localization.
+- [ ] Verify encrypted backup/restore on the actual migration path and document operator recovery steps.
+- [ ] Finalize the certificate, update-manifest, and controlled distribution process.
 
-**Milestone DoD (2026-07-05)**
-- Android app scope is order send + payment to host POS.
-- No parallel legacy input track remains in active planning.
-- Tip/account/event/statistics features are integrated and documented.
+## Phase 3: shared event operations — design before implementation
 
-## Related docs
+- [ ] Decide whether event data lives on the central internet server, a host POS on the LAN, or both.
+- [ ] Define authoritative order/sale/payment schemas and idempotent synchronization.
+- [ ] Centralize multi-register totals without breaking offline POS operation.
+- [ ] Build the selected mobile/PWA ordering workflow and host acceptance flow.
+- [ ] Add the chosen TWINT/NFC/provider handoff with auditable payment states and tips.
+- [ ] Run multi-device soak and real-event tests.
+
+## Definition of done for the active phase
+
+- A new operator can set up server v1 and pair a clean POS installation using only repository documentation.
+- No local account or legacy preset-server path is reachable in the WPF client.
+- All managed and native automated checks pass, and the packaged binaries complete the manual smoke workflow.
+- Offline boundaries and non-v1 features are stated accurately rather than implied as complete.
+
+## Related documents
+
+- [CSV2 local bucketlist](CSV2_BUCKETLIST.md)
+- [Server and external bucketlist](CSV2_SERVER_EXTERNAL_BUCKETLIST.md)
 - [Milestones](MILESTONES.md)
-- [Repo documentation index](README.md)
+- [Central server operations](../src/CashSloth.Server/README.md)

@@ -1,5 +1,7 @@
 # CashSloth.Server
 
+_Last updated: 2026-08-19_
+
 `CashSloth.Server` is the Windows control center and central API for CSV2. The WPF application hosts ASP.NET Core/Kestrel in the same process on `127.0.0.1:5080` and starts a verified Cloudflare Tunnel child process when the operator clicks **Start**.
 
 ## V1 scope

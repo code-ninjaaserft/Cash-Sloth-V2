@@ -1,48 +1,54 @@
 # Milestones
 
-_Last updated: 2026-05-27_
+_Last updated: 2026-08-19_
 
-Dates are planning targets and can be adjusted as scope is refined.
+Dates are planning targets; the status below distinguishes historical release evidence from active work.
 
-## QEN-GV (Mid-Mar 2026)
-**Target date:** 2026-03-14  
-**Status:** In progress, final rehearsal sign-off pending (as of 2026-03-06)
+## QEN-GV MVP — historical
 
-**Definition**
-- Deliver a stable MVP workflow for event rehearsal on Windows.
-- Keep C-API contracts (catalog/cart/payment) stable and covered by baseline tests.
+**Original target:** 2026-03-14
 
-**Current verified status (2026-03-06)**
-- [x] Local app release build succeeds (`dotnet restore` + `dotnet build -c Release`).
-- [x] Core contract tests pass (`ctest` 4/4).
-- [x] CI on `main` is green (run `22778999078`, 2026-03-06).
-- [x] Release workflow produced ZIP artifact (`cash-sloth-v2-v2.0.0-windows.zip`, run `22779133037`).
-- [ ] Packaged-output smoke run and team sign-off are still open.
+**Status:** Core MVP and release artifact were produced; packaged-output sign-off items remain recorded in the historical checklists.
 
-**Out of scope**
-- Full persistence rollout and deployment hardening beyond MVP closeout.
+Delivered foundation:
 
-## Mobile Event Rollout (Early Jul 2026)
-**Target date:** 2026-07-05  
-**Status:** Active milestone (as of 2026-05-27)
+- Native C ABI for catalog, cart, and payment
+- WPF shop/cart/customer-display/edit flows
+- Baseline native and managed tests
+- Tag-driven Windows release artifact
 
-**Definition**
-- Deliver mobile ordering/payment operations, account rollout, and event reporting needed for real usage.
+Evidence: [MVP acceptance checklist](QEN_GV_MVP_ACCEPTANCE_CHECKLIST.md) and [release rehearsal checklist](QEN_GV_RELEASE_REHEARSAL_CHECKLIST.md).
 
-**Current scope (through early Jul 2026)**
-- Restaurant/festwirtschaft mode with Android order send to host POS.
-- Android payment flow (RFID/NFC + TWINT) and synced payment state.
-- Trinkgeld support in payment flow and reporting.
-- Account creation from all devices/users.
-- Admin-only user controls (role promotion and controlled user management/export).
-- History + statistics with showcase mode excluded from both history and aggregation.
-- Event mode with multi-register parallel selling and per-register + total event analytics.
-- Tutorial/onboarding, startup animation, and selected UI polish.
+## Mobile Event Rollout — superseded scope
 
-**Implemented local host slice (2026-05-27)**
-- Completed sales can be saved locally with event/register/user metadata, payment method, tip amount, and line counts.
-- Recent history and basic statistics exclude showcase sales by default, with an explicit include toggle for review.
+**Original target:** 2026-07-05
 
-**Out of scope**
-- Legacy alternative input track from earlier planning.
-- Experimental integrations not required for the 2026-07-05 target.
+**Status:** Local history, tips metadata, showcase filtering, discovery, and account/preset foundations landed, but mobile ordering, provider payment, and cross-register synchronization did not. Those unfinished items moved to the [server/external bucketlist](CSV2_SERVER_EXTERNAL_BUCKETLIST.md).
+
+## Central Server v1 — implemented, deployment validation active
+
+**Implementation date:** 2026-08-19
+
+**Status:** Code and automated coverage are present; clean-machine and real-event operational rehearsal remains open.
+
+Delivered:
+
+- Windows server control center, API v1, tunnel lifecycle, and packaging foundation
+- Central Identity accounts, role/approval policy, paired devices, tokens, and forced password changes
+- Versioned central presets, reference data, audit, and encrypted backup/restore
+- WPF client trust/pairing/auth/admin/preset/reference integration
+- Removal of old local-account and anonymous preset-server paths
+
+## Z'Ämme ässe / August deployment readiness — active
+
+**Target:** 2026-08-22
+
+**Status:** Final hardware/package/operations rehearsal and UI polish are pending.
+
+Exit criteria:
+
+- Clean server and POS setup succeeds on target machines.
+- Trust, pairing, approval, password reset/change, central preset, and reconnect workflows pass.
+- Packaged output completes the cash-sale, customer-display, history, and shutdown smoke test.
+- Backup/restore and operator recovery steps are verified and documented.
+- The release clearly states its branch/profile and server v1 boundaries.

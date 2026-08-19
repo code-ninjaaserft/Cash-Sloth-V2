@@ -1,103 +1,96 @@
-# Cash-Sloth v2
+# Cash-Sloth v2 (CSV2)
 
-_Last updated: 2026-05-27_
+_Last updated: 2026-08-19_
 
-## What is this?
-Cash-Sloth v2 is a modular rebuild of the Cash-Sloth point-of-sale tooling, with a native C++ core and a WPF front end.
+Cash-Sloth v2 is a Windows point-of-sale system with a native C++ transaction core, a WPF cashier application, and a separate WPF central-server control center.
 
 ## Architecture
-The design is layered: **Core (C++) -> C-API -> WPF (.NET) via P/Invoke**. The core owns business rules and data shaping; the C-API offers a stable ABI boundary; the WPF app focuses on presentation and workflow.
+
+```text
+CashSloth.Core (C++)
+        |
+        | stable C ABI + JSON / P/Invoke
+        v
+CashSloth.App (WPF POS) <---- HTTPS / API v1 ----> CashSloth.Server (WPF + ASP.NET Core)
+        |                                                |
+        | local operational data                         | central Identity/SQLite data
+        v                                                v
+catalog cache, sale history, settings              accounts, devices, presets,
+                                                   reference data, audit, backups
+```
+
+`CashSloth.Contracts` is the shared wire contract for server API v1. The central server is authoritative for accounts, roles, approvals, paired devices, central presets, exchange rates, and translations. Sales/history and event-register discovery remain local in v1.
+
+The retired local SQLite account store and the old anonymous `CashSloth.PresetApi` path are no longer part of the WPF application.
 
 ## Repository layout
-```
+
+```text
 .
-|- .github/
-|  `- workflows/
-|- docs/
+|- .github/workflows/            CI and release workflows
+|- docs/                         roadmap, status, and historical checklists
+|- packaging/                    central-server MSIX packaging
 |- src/
-|  |- CashSloth.App/
-|  |- CashSloth.Core/
-|  |- CashSloth.CoreApi/
-|  `- CashSloth.PresetApi/
+|  |- CashSloth.App/             WPF point-of-sale application (`CSV2.exe`)
+|  |- CashSloth.Contracts/       shared API v1 records and roles
+|  |- CashSloth.Core/            native C++ core and exported C ABI
+|  |- CashSloth.CoreApi/         reserved standalone ABI-package boundary
+|  `- CashSloth.Server/          WPF central server and ASP.NET Core host
 |- tests/
 |  |- CashSloth.App.Tests/
-|  `- CashSloth.Core.Tests/
-|- tools/
-|- CMakeLists.txt
-|- Directory.Build.props
-|- LICENSE
-`- README.md
+|  |- CashSloth.Core.Tests/
+|  `- CashSloth.Server.Tests/
+|- tools/cloudflared/            pinned tunnel acquisition and notices
+|- CashSloth.sln
+`- CMakeLists.txt
 ```
 
-## Local builds (Windows)
+## Build and test on Windows
+
+The managed projects target .NET 10. Building `CashSloth.App` normally also builds and copies `CashSlothCore.dll`.
+
 ```powershell
+dotnet restore CashSloth.sln
+dotnet build CashSloth.sln -p:SkipNativeCoreBuild=true
+dotnet test CashSloth.sln -p:SkipNativeCoreBuild=true --no-build
+
 cmake -S . -B build/core
 cmake --build build/core --config Release
 ctest --test-dir build/core -C Release --output-on-failure
-dotnet build src/CashSloth.App/CashSloth.App.csproj
+
+dotnet build src/CashSloth.App/CashSloth.App.csproj -c Release
 ```
-The native build outputs `CashSlothCore.dll` under `build/core/bin/<Configuration>`, and the WPF project copies it to its output folder on build.
-The release executable is `CSV2.exe` in `src/CashSloth.App/bin/Release/net8.0-windows/`.
 
-### Visual Studio F5
-1. Open `CashSloth.sln`.
-2. Set `CashSloth.App` as the startup project (default).
-3. Select Debug or Release.
-4. Press F5.
+The POS executable is generated below `src/CashSloth.App/bin/Release/net10.0-windows/`. Open `CashSloth.sln` and select either `CashSloth.App` or `CashSloth.Server` as the Visual Studio startup project.
 
-Visual Studio will build the native core via CMake and copy `CashSlothCore.dll` into the app output folder. CMake must be installed and available on PATH.
+## Central server v1 workflow
 
-## Design rules
-- Monetary values in the core are stored as **int64 cents**.
-- The C++ core is the single source of truth for business logic.
-- The ABI boundary uses **JSON over `char*`** with an explicit **free** function pattern (see [docs/ABI.md](docs/ABI.md)).
-- WPF calls into the C-API via P/Invoke; the C-API remains the only native boundary.
+1. Start `CashSloth.Server` and create the first administrator. There are no default credentials.
+2. Configure the public HTTPS URL, data directory, verified `cloudflared.exe`, and tunnel token.
+3. Start the server, export its `.cashsloth-trust` file, and compare the displayed fingerprint on the POS device.
+4. Import the trust file in the CSV2 Accounts tab and pair the installation with a short-lived server-generated code.
+5. Register or sign in. New self-registered users require administrator approval.
+
+The client stores the device private key and session with Windows DPAPI, validates ES256 access tokens against the pinned server key, rotates refresh tokens, and caches the active central preset for limited offline use while the signed access token remains valid. See [CashSloth.Server](src/CashSloth.Server/README.md) and [CashSloth.App](src/CashSloth.App/README.md) for details.
 
 ## Current status
-The MVP stack is functional end-to-end:
-- Core C-API supports catalog load/export, cart lifecycle, line add/remove/clear, totals, and payment given/change.
-- WPF POS supports product/category selection, cart rendering, tender helpers, and customer display.
-- Catalog edit mode supports add/edit/delete for products and categories (cart is reset after catalog changes).
-- Accounts tab supports open self-registration as a normal `User`; only admins can promote roles or manage accounts.
-- Preset web backend scaffold is available in `src/CashSloth.PresetApi` (SQLite + HTTP endpoints).
-- WPF host can complete local sales into SQLite with event/register/user metadata, payment method, tip amount, recent history, and basic statistics.
-- Showcase sales can be recorded without appearing in default history/statistics unless explicitly included.
-- Event mode can discover visible client registers on the LAN, persist added client registers, remove them again, and show event totals plus selected-register statistics.
-- Startup uses the CashSloth logo, a short launch animation, and first-run onboarding that can be reopened from Settings.
-- Native contract tests cover version, catalog, cart, and payment behavior via CTest.
 
-## Roadmap
-Planning and milestone detail live in [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MILESTONES.md](docs/MILESTONES.md). Dates are targets and may shift as scope is refined.
-Current planning targets: **QEN-GV** (`2026-03-14`, closeout) and **Mobile Event Rollout** (`2026-07-05`).
+- Native catalog/cart/payment contracts and CTest coverage are in place.
+- The WPF POS supports catalog editing, tender/change, customer display, local presets, local completed-sale history/statistics, tips, showcase filtering, onboarding, and LAN register discovery.
+- Central server v1 provides paired-device authentication, central accounts and roles, versioned presets, reference data, audit, backups, and its Windows control UI.
+- The WPF POS uses only central server v1 for account and remote-preset operations.
+- Mobile ordering, central sale synchronization, provider-backed TWINT/NFC payments, and true cross-register event totals remain future work.
 
-## Local cleanup
-- Remove build and IDE artifacts: `pwsh ./tools/clean_local_artifacts.ps1`
-- Also remove local package caches: `pwsh ./tools/clean_local_artifacts.ps1 -IncludePackageCaches`
-## Contribution workflow
-- Use the issue templates for bugs, features, chores, and refactors.
-- Run `tools/github/apply_github_setup.ps1` to sync labels, milestones, and seed issues via GitHub CLI (`gh`).
+Current planning and status live in [docs/README.md](docs/README.md), especially the [CSV2 bucketlist](docs/CSV2_BUCKETLIST.md) and [server/external bucketlist](docs/CSV2_SERVER_EXTERNAL_BUCKETLIST.md).
 
-## Next steps
-1. [ ] Run packaged-output smoke rehearsal and capture final QEN-GV sign-off notes.
-2. [x] Maintain a concrete MVP acceptance checklist for QEN-GV (see `docs/QEN_GV_MVP_ACCEPTANCE_CHECKLIST.md`).
-3. [x] Define baseline roadmap phases for the active milestone set (see `docs/ROADMAP.md`).
-4. [ ] Add optional "remote-first" preset mode in `CashSloth.App` that consumes `CashSloth.PresetApi` directly for list/load/save/delete.
+## Design rules
 
-## Current milestone focus (through early Jul 2026)
-- Target date: `2026-07-05`
-- [ ] Add a **restaurant/festwirtschaft mode** with mobile ordering: customers can place orders from their phones, and those orders are sent to the host POS device for processing.
-- [ ] Keep the Android app scope focused on **order send + payment to host POS**.
-- [ ] Add **mobile payment support** for that flow, including phone-based **RFID/NFC** and **TWINT** handling, with payment results synced back to the host POS.
-- [ ] Add **trinkgeld (tip) features** for card/mobile payments and cash flows.
-- [ ] Add an **account system for all devices/users**: account creation is not limited to one operator.
-- [ ] Keep **admin-only user controls** (for example role promotion and controlled user management/export).
-- [x] Add **history + statistics** views for completed sales.
-- [x] Add a **showcase mode** that is excluded from default history/statistics.
-- [ ] Add an **event mode** where multiple users can open multiple tills/registers (for example, Kasse 1 and Kasse 2) under one event and sell in parallel.
-- [x] Add event analytics that can be filtered by **single register/user** and **overall event totals**.
-- [x] Add an in-app **tutorial/onboarding** flow.
-- [x] Add a **startup animation** for app launch.
-- [x] Apply **UI polish** items, including a proper window icon at the top left near minimize/maximize/close controls on Windows.
+- Monetary values in the core use signed 64-bit cents.
+- The native core owns cart and payment business rules.
+- The only native boundary is the documented C ABI with JSON over `char*` and explicit freeing; see [docs/ABI.md](docs/ABI.md).
+- Central API errors use a shared structured contract, and authorization is enforced by the server rather than trusted to the UI.
+- Secrets, generated databases, build output, and private signing material must not be committed.
 
 ## License
-MIT. See the `LICENSE` file.
+
+MIT. See [LICENSE](LICENSE).

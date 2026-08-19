@@ -25,10 +25,20 @@ internal sealed class CashSlothServerStorage
         WriteIndented = true
     };
 
-    private readonly string _root = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CashSloth",
-        "Client");
+    private readonly string _root;
+
+    internal CashSlothServerStorage()
+        : this(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CashSloth",
+            "Client"))
+    {
+    }
+
+    internal CashSlothServerStorage(string root)
+    {
+        _root = Path.GetFullPath(root);
+    }
 
     private string ConnectionPath => Path.Combine(_root, "server-connection.json");
     private string DeviceKeyPath => Path.Combine(_root, "device-private-key.bin");

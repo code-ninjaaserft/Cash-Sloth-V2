@@ -18,4 +18,4 @@ Document the MVP guidance for ensuring the built core DLL is present in the WPF 
 ## Implementation note
 - Core output path: `build/core-ninja/bin/CashSlothCore.dll` (local Ninja build) and `build/core/bin/Release/CashSlothCore.dll` (CI/release workflow).
 - App copy behavior: `CashSloth.App.csproj` triggers native build/copy during app build.
-- Manual fallback: build app once (`dotnet build`) to ensure DLL copy into `src/CashSloth.App/bin/<Configuration>/net8.0-windows/`.
+- Manual fallback: build the app once (`dotnet build`) to ensure DLL copy into `src/CashSloth.App/bin/<Configuration>/net10.0-windows/`.
