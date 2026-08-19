@@ -30,7 +30,8 @@ public partial class MainWindow : Window
     private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly List<CatalogItemEditor> _catalog = new();
     private readonly List<string> _extraCategories = new();
-    private readonly AssortmentPresetStore _assortmentStore = new();
+    private readonly AppFeatureFlags _features;
+    private readonly AssortmentPresetStore _assortmentStore;
     private readonly AppSettingsStore _settingsStore = new();
     private readonly FxRateProvider _fxRateProvider = new();
     private readonly OnlinePresetProvider _onlinePresetProvider = new();
@@ -38,7 +39,6 @@ public partial class MainWindow : Window
     private readonly SaleHistorySqliteStore _saleHistoryStore = new();
     private readonly EventRegisterStore _eventRegisterStore = new();
     private readonly EventRegisterDiscoveryService _eventDiscoveryService = new();
-    private readonly AppFeatureFlags _features = AppFeatureConfiguration.Load();
     private readonly WindowsPowerGuard _powerGuard = new();
     private readonly ObservableCollection<EventRegisterListItem> _eventClientRegisterItems = new();
     private readonly ObservableCollection<EventDiscoveredRegisterListItem> _eventDiscoveredRegisterItems = new();
@@ -64,6 +64,8 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _features = AppFeatureConfiguration.Load();
+        _assortmentStore = new AssortmentPresetStore(_features.Profile);
         InitializeComponent();
         ApplyFeatureVisibility();
         ApplyDeviceModeFeatures();
@@ -3420,12 +3422,7 @@ public partial class MainWindow : Window
         _catalog.Clear();
         _extraCategories.Clear();
 
-        _catalog.Add(new CatalogItemEditor("COFFEE", "Coffee", 500, "Hot Drinks"));
-        _catalog.Add(new CatalogItemEditor("TEA", "Tea", 400, "Hot Drinks"));
-        _catalog.Add(new CatalogItemEditor("WATER", "Water", 200, "Soft Drinks"));
-        _catalog.Add(new CatalogItemEditor("COLA", "Cola", 350, "Soft Drinks"));
-        _catalog.Add(new CatalogItemEditor("CHIPS", "Chips", 250, "Snacks"));
-        _catalog.Add(new CatalogItemEditor("CAKE", "Cake", 450, "Snacks"));
+        _catalog.AddRange(DefaultCatalogFactory.Create(_features.Profile));
 
         _activeCategory = AllCategoriesToken;
     }

@@ -21,11 +21,15 @@ internal sealed class AssortmentPresetStore
     };
 
     internal AssortmentPresetStore()
+        : this(AppFeatureFlags.Full.Profile)
+    {
+    }
+
+    internal AssortmentPresetStore(string profile)
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var jsonPath = Path.Combine(localAppData, "CashSloth", "assortment.presets.json");
-        var sqlitePath = Path.Combine(localAppData, "CashSloth", "assortment.presets.sqlite3");
-        Initialize(jsonPath, sqlitePath);
+        var paths = ResolveDefaultPaths(localAppData, profile);
+        Initialize(paths.JsonPath, paths.SqlitePath);
     }
 
     internal AssortmentPresetStore(string jsonFilePath, string sqliteFilePath)
@@ -36,11 +40,31 @@ internal sealed class AssortmentPresetStore
     internal string FilePath { get; private set; } = string.Empty;
     internal string SqliteFilePath { get; private set; } = string.Empty;
 
+    internal static (string JsonPath, string SqlitePath) ResolveDefaultPaths(string localAppData, string? profile)
+    {
+        var normalizedProfile = profile?.Trim();
+        var suffix = string.IsNullOrWhiteSpace(normalizedProfile) ||
+                     string.Equals(normalizedProfile, AppFeatureFlags.Full.Profile, StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : $".{NormalizeFileNamePart(normalizedProfile)}";
+        var directory = Path.Combine(localAppData, "CashSloth");
+
+        return (
+            Path.Combine(directory, $"assortment.presets{suffix}.json"),
+            Path.Combine(directory, $"assortment.presets{suffix}.sqlite3"));
+    }
+
     private void Initialize(string jsonFilePath, string sqliteFilePath)
     {
         FilePath = jsonFilePath;
         SqliteFilePath = sqliteFilePath;
         _sqliteStore = new AssortmentSqliteStore(SqliteFilePath);
+    }
+
+    private static string NormalizeFileNamePart(string? value)
+    {
+        var normalized = PresetIdRegex.Replace(value?.Trim().ToUpperInvariant() ?? string.Empty, "-").Trim('-');
+        return string.IsNullOrWhiteSpace(normalized) ? AppFeatureFlags.Full.Profile : normalized.ToLowerInvariant();
     }
 
     internal bool TryLoad(out List<CatalogItemEditor> catalog, out List<string> extraCategories, out string? error)

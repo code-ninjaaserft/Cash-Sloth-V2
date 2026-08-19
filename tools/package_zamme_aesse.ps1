@@ -76,6 +76,9 @@ Visible: Shop/catalog main page, History, Settings.
 Hidden by CashSloth.Features.json: Presets, Accounts, Event networking, Customer Display, Onboarding.
 Enabled by CashSloth.Features.json: keep laptop awake, soft kiosk fullscreen, password-gated exit, Windows lock on exit.
 
+First-run cart catalog: Stand 11, Getränkestand «El Tony & mehr».
+The Zamme Aesse profile stores its assortment separately from the full CashSloth profile.
+
 To unlock features for a controlled device, edit CashSloth.Features.json next to CSV2.exe and restart the app.
 This is a local product-mode switch, not a security or licensing boundary.
 
