@@ -23,6 +23,7 @@ internal sealed class CashSlothServerClient : IDisposable
 {
     private readonly CashSlothServerStorage _storage;
     private readonly HttpClient _httpClient;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -160,27 +161,49 @@ internal sealed class CashSlothServerClient : IDisposable
 
     internal async Task<CashSlothClientSession> RefreshAsync(CancellationToken cancellationToken = default)
     {
-        var session = Session ?? _storage.LoadSession()
+        var requestedSession = Session ?? _storage.LoadSession()
             ?? throw new CashSlothServerException(401, "authentication_required", "Es ist keine Sitzung gespeichert.");
-        if (session.RefreshTokenExpiresAtUtc <= DateTimeOffset.UtcNow)
-        {
-            ClearSession();
-            throw new CashSlothServerException(401, "refresh_token_expired", "Die gespeicherte Sitzung ist abgelaufen.");
-        }
+        var requestedRefreshToken = requestedSession.RefreshToken;
+
+        await _refreshGate.WaitAsync(cancellationToken);
         try
         {
-            var proof = await CreateProofAsync("refresh", BuildPayloadHash(session.RefreshToken), cancellationToken);
-            var response = await SendPublicAsync<RefreshRequest, AuthTokenResponse>(
-                HttpMethod.Post,
-                "api/v1/auth/refresh",
-                new RefreshRequest(session.RefreshToken, proof),
-                cancellationToken);
-            return SaveAndValidateSession(response);
+            var session = Session ?? _storage.LoadSession()
+                ?? throw new CashSlothServerException(401, "authentication_required", "Es ist keine Sitzung gespeichert.");
+
+            // Another request may already have rotated the one-time refresh token while this
+            // request was waiting. Reuse that freshly validated session instead of submitting
+            // the now-invalid previous token and clearing the successful login.
+            if (!string.Equals(session.RefreshToken, requestedRefreshToken, StringComparison.Ordinal) &&
+                IsAccessTokenLocallyValid(session.AccessToken, out _))
+            {
+                return session;
+            }
+
+            if (session.RefreshTokenExpiresAtUtc <= DateTimeOffset.UtcNow)
+            {
+                ClearSessionIfCurrent(session.RefreshToken);
+                throw new CashSlothServerException(401, "refresh_token_expired", "Die gespeicherte Sitzung ist abgelaufen.");
+            }
+            try
+            {
+                var proof = await CreateProofAsync("refresh", BuildPayloadHash(session.RefreshToken), cancellationToken);
+                var response = await SendPublicAsync<RefreshRequest, AuthTokenResponse>(
+                    HttpMethod.Post,
+                    "api/v1/auth/refresh",
+                    new RefreshRequest(session.RefreshToken, proof),
+                    cancellationToken);
+                return SaveAndValidateSession(response);
+            }
+            catch (CashSlothServerException exception) when (exception.StatusCode is 401 or 403)
+            {
+                ClearSessionIfCurrent(session.RefreshToken);
+                throw;
+            }
         }
-        catch (CashSlothServerException exception) when (exception.StatusCode is 401 or 403)
+        finally
         {
-            ClearSession();
-            throw;
+            _refreshGate.Release();
         }
     }
 
@@ -323,7 +346,14 @@ internal sealed class CashSlothServerClient : IDisposable
         {
             using var ecdsa = ECDsa.Create();
             ecdsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(connection.Trust.PublicKey), out _);
-            var key = new ECDsaSecurityKey(ecdsa) { KeyId = connection.Trust.KeyId };
+            var key = new ECDsaSecurityKey(ecdsa)
+            {
+                KeyId = connection.Trust.KeyId,
+                // This ECDsa instance is intentionally scoped to a single validation. Caching
+                // its signature provider would retain the disposed key and make the next token
+                // validation fail spuriously, triggering an immediate refresh/logout cycle.
+                CryptoProviderFactory = new CryptoProviderFactory { CacheSignatureProviders = false }
+            };
             var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
             principal = handler.ValidateToken(token, new TokenValidationParameters
             {
@@ -407,6 +437,14 @@ internal sealed class CashSlothServerClient : IDisposable
         if (hadSession)
         {
             SessionChanged?.Invoke(null);
+        }
+    }
+
+    private void ClearSessionIfCurrent(string refreshToken)
+    {
+        if (Session is null || string.Equals(Session.RefreshToken, refreshToken, StringComparison.Ordinal))
+        {
+            ClearSession();
         }
     }
 
