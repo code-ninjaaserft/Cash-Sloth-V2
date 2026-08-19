@@ -52,7 +52,7 @@ public sealed class CashSlothServerClientTests
             client.AcceptTrust(originalTrust with { HttpsUrl = "https://new.example.test" });
             Assert.Equal(deviceId, client.Connection?.DeviceId);
 
-            client.AcceptTrust(originalTrust with { ServerId = "different-server" });
+            client.AcceptTrust(originalTrust with { Fingerprint = "different-fingerprint" });
             Assert.Null(client.Connection?.DeviceId);
             Assert.Null(client.Connection?.DeviceName);
         }

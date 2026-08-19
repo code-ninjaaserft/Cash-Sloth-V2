@@ -86,7 +86,8 @@ internal sealed class CashSlothServerClient : IDisposable
         var current = Connection;
         var sameServer = current is not null &&
                          current.Trust.ServerId == trust.ServerId &&
-                         current.Trust.KeyId == trust.KeyId;
+                         current.Trust.KeyId == trust.KeyId &&
+                         string.Equals(current.Trust.Fingerprint, trust.Fingerprint, StringComparison.OrdinalIgnoreCase);
         _storage.SaveConnection(new CashSlothClientConnection(
             trust,
             sameServer ? current!.DeviceId : null,
@@ -204,12 +205,24 @@ internal sealed class CashSlothServerClient : IDisposable
         }
     }
 
-    internal Task ChangePasswordAsync(string currentPassword, string newPassword, CancellationToken cancellationToken = default) =>
-        SendNoContentAsync(
+    internal async Task ChangePasswordAsync(
+        string currentPassword,
+        string newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        await SendNoContentAsync(
             HttpMethod.Post,
             "api/v1/auth/change-password",
             new ChangePasswordRequest(currentPassword, newPassword),
             cancellationToken);
+
+        if (Session is not null)
+        {
+            Session = Session with { User = Session.User with { MustChangePassword = false } };
+            _storage.SaveSession(Session);
+            SessionChanged?.Invoke(Session.User);
+        }
+    }
 
     internal async Task<UserProfileResponse> GetProfileAsync(CancellationToken cancellationToken = default)
     {
