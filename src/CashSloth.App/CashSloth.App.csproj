@@ -65,6 +65,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="CashSloth.Features.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="CashSloth.Features.zamme-aesse.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

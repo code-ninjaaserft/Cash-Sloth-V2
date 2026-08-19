@@ -1,0 +1,14 @@
+{
+  "profile": "zamme-aesse",
+  "show_presets": false,
+  "show_accounts": false,
+  "show_event": false,
+  "show_customer_display": false,
+  "show_catalog_editing": true,
+  "show_onboarding": false,
+  "show_startup_animation": true,
+  "keep_laptop_awake": true,
+  "kiosk_mode": true,
+  "require_kiosk_exit_password": true,
+  "lock_windows_on_exit": true
+}

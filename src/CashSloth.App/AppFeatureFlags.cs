@@ -47,7 +47,13 @@ internal static class AppFeatureConfiguration
     internal static AppFeatureFlags Load()
     {
         var overridePath = Environment.GetEnvironmentVariable("CASH_SLOTH_FEATURES");
-        var profilePath = ResolveProfilePath(Environment.GetEnvironmentVariable("CASH_SLOTH_PROFILE"));
+        var profile = Environment.GetEnvironmentVariable("CASH_SLOTH_PROFILE");
+        if (IsFullProfile(profile))
+        {
+            return AppFeatureFlags.Full;
+        }
+
+        var profilePath = ResolveProfilePath(profile);
         var localPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "CashSloth",
@@ -67,10 +73,15 @@ internal static class AppFeatureConfiguration
         return AppFeatureFlags.Full;
     }
 
+    private static bool IsFullProfile(string? profile)
+    {
+        return string.Equals(profile?.Trim(), "full", StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static string? ResolveProfilePath(string? profile)
     {
         var normalized = profile?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
+        if (string.IsNullOrWhiteSpace(normalized) || IsFullProfile(normalized))
         {
             return null;
         }

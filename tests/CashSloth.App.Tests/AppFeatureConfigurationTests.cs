@@ -88,6 +88,14 @@ public sealed class AppFeatureConfigurationTests
         Assert.EndsWith("CashSloth.Features.zamme-aesse.json", path, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void FullProfileDoesNotResolveToAFeatureFile()
+    {
+        var path = AppFeatureConfiguration.ResolveProfilePath("full");
+
+        Assert.Null(path);
+    }
+
     private static string CreateTempDir()
     {
         var path = Path.Combine(Path.GetTempPath(), "cashsloth-tests", Guid.NewGuid().ToString("N"));
