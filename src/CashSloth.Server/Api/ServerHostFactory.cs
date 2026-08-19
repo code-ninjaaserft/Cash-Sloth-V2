@@ -21,7 +21,8 @@ public static class ServerHostFactory
         ServerSettings settings,
         ServerPaths paths,
         ServerSettingsStore settingsStore,
-        ServerLogBuffer logs)
+        ServerLogBuffer logs,
+        int localPort = 5080)
     {
         paths.EnsureDirectories();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -33,7 +34,7 @@ public static class ServerHostFactory
 
         builder.WebHost.ConfigureKestrel(options =>
         {
-            options.Listen(IPAddress.Loopback, 5080);
+            options.Listen(IPAddress.Loopback, localPort);
             options.Limits.MaxRequestBodySize = 1_048_576;
             options.AddServerHeader = false;
         });
@@ -49,6 +50,8 @@ public static class ServerHostFactory
         builder.Services.AddSingleton(tokenService);
         builder.Services.AddSingleton<TunnelTokenStore>();
         builder.Services.AddSingleton<ReferenceDataLock>();
+        builder.Services.Configure<HostOptions>(options =>
+            options.ShutdownTimeout = TimeSpan.FromSeconds(5));
         builder.Services.AddDbContext<ServerDbContext>(options => options.UseSqlite(
             $"Data Source={paths.DatabasePath};Mode=ReadWriteCreate;Cache=Shared;Default Timeout=5;Foreign Keys=True;Pooling=True"));
 

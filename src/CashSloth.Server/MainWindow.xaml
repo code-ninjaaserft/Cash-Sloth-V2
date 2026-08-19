@@ -59,7 +59,12 @@
                         <GroupBox x:Name="FirstSetupGroup" Header="Ersteinrichtung – erster Administrator" Margin="4,12,4,4">
                             <StackPanel Margin="10">
                                 <TextBlock Text="Es gibt absichtlich kein admin/admin. Erstelle jetzt den ersten lokalen Administrator." TextWrapping="Wrap" Margin="3"/>
-                                <WrapPanel><TextBox x:Name="FirstAdminNameBox" Width="220" ToolTip="Benutzername"/><PasswordBox x:Name="FirstAdminPasswordBox" Width="220" ToolTip="Mindestens 12 Zeichen"/><Button Content="Administrator erstellen" Click="OnCreateFirstAdmin"/></WrapPanel>
+                                <TextBlock Text="Benutzername" FontWeight="SemiBold" Margin="3,10,3,2"/>
+                                <TextBox x:Name="FirstAdminNameBox" Width="320" HorizontalAlignment="Left" ToolTip="3 bis 50 Zeichen; Buchstaben, Zahlen, Punkt, Bindestrich und Unterstrich"/>
+                                <TextBlock Text="Passwort" FontWeight="SemiBold" Margin="3,10,3,2"/>
+                                <PasswordBox x:Name="FirstAdminPasswordBox" Width="320" HorizontalAlignment="Left" ToolTip="Mindestens 12 Zeichen"/>
+                                <TextBlock Text="Mindestens 12 Zeichen sowie je ein Grossbuchstabe, Kleinbuchstabe, eine Zahl und ein Sonderzeichen." Foreground="#FF555555" TextWrapping="Wrap" Margin="3,4,3,6"/>
+                                <Button Content="Administrator erstellen" Click="OnCreateFirstAdmin" HorizontalAlignment="Left" Padding="16,7"/>
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>

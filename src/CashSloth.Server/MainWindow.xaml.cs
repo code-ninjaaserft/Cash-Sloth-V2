@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using CashSloth.Contracts;
+using CashSloth.Server.Api;
 using CashSloth.Server.Data;
 using CashSloth.Server.Infrastructure;
 using CashSloth.Server.Security;
@@ -26,8 +27,11 @@ public partial class MainWindow : Window
     private readonly ServerLogBuffer _logs = new();
     private readonly ServerCoordinator _coordinator;
     private readonly System.Windows.Forms.NotifyIcon _trayIcon;
+    private readonly SemaphoreSlim _actionGate = new(1, 1);
     private bool _allowClose;
+    private bool _closeInProgress;
     private bool _busy;
+    private int _logRefreshScheduled;
 
     public MainWindow()
     {
@@ -351,8 +355,16 @@ public partial class MainWindow : Window
         AutoStartCheckBox.IsChecked = settings.StartWithWindows;
     }
 
-    private void OnCoordinatorStatusChanged(object? sender, ServerStatusSnapshot status) =>
-        Dispatcher.Invoke(() => ApplyStatus(status));
+    private void OnCoordinatorStatusChanged(object? sender, ServerStatusSnapshot status)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            ApplyStatus(status);
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(() => ApplyStatus(status));
+    }
 
     private void ApplyStatus(ServerStatusSnapshot status)
     {
@@ -381,6 +393,7 @@ public partial class MainWindow : Window
         LastErrorText.Text = status.LastError ?? "–";
         StartButton.IsEnabled = !_busy && !_coordinator.IsRunning;
         StopButton.IsEnabled = !_busy && _coordinator.IsRunning;
+        FirstSetupGroup.IsEnabled = !_busy;
         _trayIcon.Text = $"CashSloth Server – {OverallStatusText.Text}";
     }
 
@@ -390,16 +403,24 @@ public partial class MainWindow : Window
         label.Text = active ? activeText : inactiveText;
     }
 
-    private void OnLogsChanged(object? sender, EventArgs e) =>
-        Dispatcher.Invoke(() =>
+    private void OnLogsChanged(object? sender, EventArgs e)
+    {
+        if (Interlocked.Exchange(ref _logRefreshScheduled, 1) != 0)
         {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            Interlocked.Exchange(ref _logRefreshScheduled, 0);
             RuntimeLogBox.Text = string.Join(Environment.NewLine, _logs.Entries);
             RuntimeLogBox.ScrollToEnd();
         });
+    }
 
     private async Task RunActionAsync(Func<Task> action, string? successMessage = null, bool showSuccess = true)
     {
-        if (_busy) return;
+        if (!await _actionGate.WaitAsync(0)) return;
         _busy = true;
         ApplyStatus(_coordinator.Status);
         try
@@ -419,11 +440,27 @@ public partial class MainWindow : Window
         {
             _busy = false;
             ApplyStatus(_coordinator.Status);
+            _actionGate.Release();
         }
     }
 
-    private void ShowError(Exception exception) =>
-        System.Windows.MessageBox.Show(this, exception.Message, "CashSloth Server", MessageBoxButton.OK, MessageBoxImage.Error);
+    private void ShowError(Exception exception)
+    {
+        var message = exception.Message;
+        if (exception is ApiProblemException { FieldErrors.Count: > 0 } problem)
+        {
+            var details = problem.FieldErrors
+                .SelectMany(entry => entry.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (details.Length > 0)
+            {
+                message = $"{problem.Message}\n\n• {string.Join("\n• ", details)}";
+            }
+        }
+        System.Windows.MessageBox.Show(this, message, "CashSloth Server", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
 
     private string? AskPassphrase(string title, string instruction)
     {
@@ -447,34 +484,53 @@ public partial class MainWindow : Window
         Activate();
     });
 
-    private void BeginExit()
-    {
-        _allowClose = true;
-        Close();
-    }
+    private void BeginExit() => Close();
 
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
         if (_allowClose)
         {
-            _trayIcon.Visible = false;
-            _trayIcon.Dispose();
-            await _coordinator.DisposeAsync();
-            System.Windows.Application.Current.Shutdown();
+            return;
+        }
+
+        e.Cancel = true;
+        if (_closeInProgress)
+        {
             return;
         }
 
         if (_coordinator.IsRunning &&
             System.Windows.MessageBox.Show(this, "Der Server läuft. Soll er sauber gestoppt und die Anwendung beendet werden?", "CashSloth Server beenden", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
         {
-            e.Cancel = true;
             return;
         }
 
-        e.Cancel = true;
-        await RunActionAsync(() => _coordinator.StopAsync(), showSuccess: false);
-        _allowClose = true;
-        Close();
+        _closeInProgress = true;
+        await _actionGate.WaitAsync();
+        try
+        {
+            _busy = true;
+            ApplyStatus(_coordinator.Status);
+            await _coordinator.DisposeAsync();
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            _allowClose = true;
+        }
+        catch (Exception exception)
+        {
+            _closeInProgress = false;
+            ShowError(exception);
+        }
+        finally
+        {
+            _busy = false;
+            _actionGate.Release();
+        }
+
+        if (_allowClose)
+        {
+            _ = Dispatcher.BeginInvoke(() => System.Windows.Application.Current.Shutdown());
+        }
     }
 
     private static string FormatBytes(long bytes) => bytes switch
