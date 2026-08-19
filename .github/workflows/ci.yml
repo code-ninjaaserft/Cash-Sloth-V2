@@ -11,19 +11,21 @@ permissions:
 
 jobs:
   build-test:
-    runs-on: windows-latest
+    # The native core still targets the Visual Studio 2022 CMake generator.
+    # windows-latest now points at the VS 2026 image, so keep this runner explicit.
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "8.0.x"
+          global-json-file: global.json
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~\AppData\Local\NuGet\Cache
@@ -50,13 +52,10 @@ jobs:
             Write-Host "No build/core directory; skipping ctest."
           }
 
-      - name: Build WPF App (if csproj exists)
-        shell: pwsh
+      - name: Restore .NET solution
         run: |
-          $csproj = Get-ChildItem -Path "src/CashSloth.App" -Filter "*.csproj" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($null -eq $csproj) {
-            Write-Host "No .csproj found under src/CashSloth.App yet; skipping dotnet build."
-            exit 0
-          }
-          dotnet restore $csproj.FullName
-          dotnet build $csproj.FullName -c Release --no-restore
+          dotnet restore CashSloth.sln
+
+      - name: Build and test .NET solution
+        run: |
+          dotnet test CashSloth.sln -c Release --no-restore -p:SkipNativeCoreBuild=true
