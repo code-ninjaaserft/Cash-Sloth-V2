@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>CSV2</AssemblyName>
     <RootNamespace>CashSloth.App</RootNamespace>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>false</UseWindowsForms>
     <Nullable>enable</Nullable>
@@ -57,7 +57,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CashSloth.Contracts\CashSloth.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
