@@ -8,6 +8,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using CashSloth.Contracts;
+using Microsoft.Win32;
 using Screen = System.Windows.Forms.Screen;
 using WpfButton = System.Windows.Controls.Button;
 
@@ -32,8 +34,8 @@ public partial class MainWindow : Window
     private readonly AssortmentPresetStore _assortmentStore = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly FxRateProvider _fxRateProvider = new();
-    private readonly OnlinePresetProvider _onlinePresetProvider = new();
-    private readonly AuthSqliteStore _authStore = new();
+    private readonly CashSlothServerStorage _serverStorage = new();
+    private readonly CashSlothServerClient _serverClient;
     private readonly SaleHistorySqliteStore _saleHistoryStore = new();
     private readonly EventRegisterStore _eventRegisterStore = new();
     private readonly EventRegisterDiscoveryService _eventDiscoveryService = new();
@@ -51,7 +53,7 @@ public partial class MainWindow : Window
     private string _activeCategory = AllCategoriesToken;
     private string _activePresetId = DefaultPresetSelection;
     private AuthSessionUser? _currentUser;
-    private List<AuthAccountSummary> _accountSummaries = new();
+    private List<AdminAccountResponse> _accountSummaries = new();
     private List<AssortmentPresetSummary> _onlinePresetSummaries = new();
     private int _quantityEditLineIndex = -1;
     private int _quantityEditCurrentQty;
@@ -60,6 +62,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _serverClient = new CashSlothServerClient(_serverStorage);
         InitializeComponent();
         LoadAndApplySettings();
 
@@ -79,7 +82,6 @@ public partial class MainWindow : Window
     private void LoadAndApplySettings()
     {
         _settings = _settingsStore.Load();
-        _fxRateProvider.TryRefreshRates(out _);
         ApplySettings(save: false);
     }
 
@@ -161,7 +163,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        _fxRateProvider.TryRefreshRates(out _);
+        if (_currentUser is not null)
+        {
+            _ = RefreshCentralReferenceDataAsync();
+        }
         _settings = _settings with { Currency = currency };
         ApplySettings(save: true);
         RenderProductButtons();
@@ -209,14 +214,14 @@ public partial class MainWindow : Window
         RefreshPresetControls(ResolveSelectedPresetId());
     }
 
-    private void OnRefreshOnlinePresetListClick(object sender, RoutedEventArgs e)
+    private async void OnRefreshOnlinePresetListClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.User, "import online presets"))
         {
             return;
         }
 
-        RefreshOnlinePresetControls(preferredPresetId: ResolveSelectedOnlinePresetId(), updateStatusOnSuccess: true);
+        await RefreshOnlinePresetControlsAsync(preferredPresetId: ResolveSelectedOnlinePresetId(), updateStatusOnSuccess: true);
     }
 
     private void OnSwitchPresetClick(object sender, RoutedEventArgs e)
@@ -312,15 +317,14 @@ public partial class MainWindow : Window
         RefreshPresetControls(_activePresetId);
     }
 
-    private void OnImportOnlinePresetClick(object sender, RoutedEventArgs e)
+    private async void OnImportOnlinePresetClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.User, "import online presets"))
         {
             return;
         }
 
-        var serverUrl = OnlinePresetUrlTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(serverUrl))
+        if (_serverClient.Connection is null)
         {
             StatusText.Text = L("status.preset_server_url_required");
             return;
@@ -333,9 +337,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_onlinePresetProvider.TryDownloadPresetById(serverUrl, onlinePresetId, out var downloadedPreset, out var downloadError) || downloadedPreset == null)
+        AssortmentPresetDocument downloadedPreset;
+        try
         {
-            StatusText.Text = Lf("status.preset_import_failed", downloadError ?? string.Empty);
+            var serverPreset = await _serverClient.GetPresetAsync(onlinePresetId);
+            downloadedPreset = ToLocalPreset(serverPreset);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = Lf("status.preset_import_failed", exception.Message);
             return;
         }
 
@@ -372,11 +382,11 @@ public partial class MainWindow : Window
         }
 
         RefreshPresetControls(persistedPresetId);
-        RefreshOnlinePresetControls(preferredPresetId: onlinePresetId, updateStatusOnSuccess: false);
+        await RefreshOnlinePresetControlsAsync(preferredPresetId: onlinePresetId, updateStatusOnSuccess: false);
         OnlinePresetNameTextBox.Text = string.Empty;
     }
 
-    private void OnUploadPresetClick(object sender, RoutedEventArgs e)
+    private async void OnUploadPresetClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.Creator, "upload presets"))
         {
@@ -390,8 +400,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var serverUrl = OnlinePresetUrlTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(serverUrl))
+        if (_serverClient.Connection is null)
         {
             StatusText.Text = L("status.preset_server_url_required");
             return;
@@ -408,14 +417,31 @@ public partial class MainWindow : Window
             preset = preset with { Name = OnlinePresetNameTextBox.Text.Trim() };
         }
 
-        if (!_onlinePresetProvider.TryUploadPresetToServer(serverUrl, preset, out var uploadError))
+        try
         {
-            StatusText.Text = Lf("status.preset_upload_failed", uploadError ?? string.Empty);
+            var upload = ToServerPreset(preset);
+            try
+            {
+                await _serverClient.CreatePresetAsync(upload);
+            }
+            catch (CashSlothServerException exception) when (exception.StatusCode == 409)
+            {
+                var existing = await _serverClient.GetPresetAsync(upload.Id);
+                await _serverClient.UpdatePresetAsync(upload with { Version = existing.Version });
+            }
+            if (SetImportedPresetActiveCheckBox.IsChecked == true && HasRole(UserRole.Admin))
+            {
+                await _serverClient.SetActivePresetAsync(upload.Id);
+            }
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = Lf("status.preset_upload_failed", exception.Message);
             return;
         }
 
         StatusText.Text = Lf("status.preset_uploaded", preset.Name);
-        RefreshOnlinePresetControls(preferredPresetId: AssortmentPresetStore.NormalizePresetId(preset.Id), updateStatusOnSuccess: false);
+        await RefreshOnlinePresetControlsAsync(preferredPresetId: AssortmentPresetStore.NormalizePresetId(preset.Id), updateStatusOnSuccess: false);
     }
 
     private void InitializeAuthUi()
@@ -423,39 +449,37 @@ public partial class MainWindow : Window
         RefreshAccountRoleOptions();
         AccountRoleComboBox.SelectedValue = UserRole.User;
         AccountEnabledCheckBox.IsChecked = true;
+        AccountApprovedCheckBox.IsChecked = false;
+        DeviceNameTextBox.Text = Environment.MachineName;
 
-        if (!_authStore.TryEnsureInitialized(out var seededDefaultAdmin, out var initError))
+        var connection = _serverClient.Connection;
+        if (connection is not null)
         {
-            StatusText.Text = $"Account store initialization failed: {initError ?? "unknown error"}";
-            RefreshAuthUi(loadAccounts: false);
-            return;
+            OnlinePresetUrlTextBox.Text = connection.Trust.HttpsUrl;
+            OnlinePresetUrlTextBox.IsReadOnly = true;
+            ServerFingerprintTextBlock.Text = $"{connection.Trust.ServerId}\n{connection.Trust.Fingerprint}";
+            ServerConnectionStatusTextBlock.Text = connection.DeviceId is null
+                ? "Server trusted; this installation is not paired yet."
+                : $"Paired as {connection.DeviceName} ({connection.DeviceId:N})";
+            DeviceNameTextBox.Text = connection.DeviceName ?? Environment.MachineName;
         }
 
-        var seededMessage = seededDefaultAdmin
-            ? "Default admin created: username 'admin', password 'admin'. Change it immediately."
-            : null;
-
-        if (_authStore.TryAuthenticateLocalAdminBypass(out var recoveredUser, out var recoveryError) && recoveredUser != null)
+        var session = _serverClient.Session;
+        if (session is not null && _serverClient.IsAccessTokenLocallyValid(session.AccessToken, out _))
         {
-            _currentUser = recoveredUser;
-            RefreshAuthUi(loadAccounts: true);
-            StatusText.Text = seededMessage == null
-                ? $"Local admin recovery unlocked this laptop as '{recoveredUser.Username}'."
-                : $"{seededMessage} Local admin recovery unlocked this laptop as '{recoveredUser.Username}'.";
-            return;
+            _currentUser = ToLocalUser(session.User);
+            StatusText.Text = $"Restored locally verified session for '{session.User.Username}'.";
+        }
+        else if (session is not null)
+        {
+            _ = TryRefreshStoredSessionAsync();
         }
 
         RefreshAuthUi(loadAccounts: true);
-
-        if (seededDefaultAdmin)
+        if (_currentUser is not null)
         {
-            StatusText.Text = seededMessage;
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(recoveryError))
-        {
-            StatusText.Text = $"Local admin recovery unavailable: {recoveryError}";
+            _ = LoadActiveServerPresetAsync();
+            _ = RefreshCentralReferenceDataAsync();
         }
     }
 
@@ -496,7 +520,11 @@ public partial class MainWindow : Window
         LoginPasswordBox.IsEnabled = !isSignedIn;
         LoginButton.IsEnabled = !isSignedIn;
         LogoutButton.IsEnabled = isSignedIn;
-        LocalAdminRecoveryButton.IsEnabled = !isSignedIn;
+        CurrentPasswordChangeBox.IsEnabled = isSignedIn;
+        NewPasswordChangeBox.IsEnabled = isSignedIn;
+        ChangePasswordButton.IsEnabled = isSignedIn;
+        CreateAccountButton.IsEnabled = !isSignedIn && _serverClient.IsPaired;
+        LocalAdminRecoveryButton.IsEnabled = false;
 
         var canDownload = HasRole(UserRole.User);
         var canUpload = HasRole(UserRole.Creator);
@@ -516,39 +544,46 @@ public partial class MainWindow : Window
         AccountPasswordBox.IsEnabled = canManage;
         AccountRoleComboBox.IsEnabled = canManage;
         AccountEnabledCheckBox.IsEnabled = canManage;
+        AccountApprovedCheckBox.IsEnabled = canManage;
         SaveAccountButton.IsEnabled = canManage;
         DeleteAccountButton.IsEnabled = canManage;
 
         if (canManage && loadAccounts)
         {
-            _ = RefreshAccountsFromStore(updateStatusOnError: true);
+            _ = RefreshAccountsFromServerAsync(updateStatusOnError: true);
         }
         else if (!canManage)
         {
-            _accountSummaries = new List<AuthAccountSummary>();
+            _accountSummaries = new List<AdminAccountResponse>();
             AccountsListBox.ItemsSource = _accountSummaries;
             ClearAccountEditor();
         }
     }
 
-    private void OnLoginClick(object sender, RoutedEventArgs e)
+    private async void OnLoginClick(object sender, RoutedEventArgs e)
     {
         var username = LoginUsernameTextBox.Text.Trim();
         var password = LoginPasswordBox.Password;
-
-        if (!_authStore.TryAuthenticate(username, password, out var user, out var authError) || user == null)
+        try
         {
-            StatusText.Text = $"Login failed: {authError ?? "invalid credentials"}";
-            return;
+            LoginButton.IsEnabled = false;
+            var session = await _serverClient.LoginAsync(username, password);
+            _currentUser = ToLocalUser(session.User);
+            LoginPasswordBox.Password = string.Empty;
+            RefreshAuthUi(loadAccounts: true);
+            await RefreshCentralReferenceDataAsync();
+            StatusText.Text = session.User.MustChangePassword
+                ? "Signed in with a temporary password. Change it before using central functions."
+                : $"Signed in as '{session.User.Username}' ({session.User.Role}).";
         }
-
-        _currentUser = user;
-        LoginPasswordBox.Password = string.Empty;
-        RefreshAuthUi(loadAccounts: true);
-        StatusText.Text = $"Signed in as '{user.Username}' ({user.Role}).";
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Login failed: {exception.Message}";
+            RefreshAuthUi(loadAccounts: false);
+        }
     }
 
-    private void OnLogoutClick(object sender, RoutedEventArgs e)
+    private async void OnLogoutClick(object sender, RoutedEventArgs e)
     {
         if (_currentUser == null)
         {
@@ -556,30 +591,40 @@ public partial class MainWindow : Window
         }
 
         var previousUser = _currentUser.Username;
+        try
+        {
+            await _serverClient.LogoutAsync();
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Server logout could not be confirmed: {exception.Message}";
+        }
         _currentUser = null;
         RefreshAuthUi(loadAccounts: false);
         StatusText.Text = $"Signed out '{previousUser}'.";
     }
 
-    private void OnLocalAdminRecoveryClick(object sender, RoutedEventArgs e)
+    private async void OnChangePasswordClick(object sender, RoutedEventArgs e)
     {
-        if (_currentUser != null)
+        try
         {
-            return;
+            await _serverClient.ChangePasswordAsync(CurrentPasswordChangeBox.Password, NewPasswordChangeBox.Password);
+            CurrentPasswordChangeBox.Clear();
+            NewPasswordChangeBox.Clear();
+            StatusText.Text = "Password changed successfully.";
         }
-
-        if (!_authStore.TryAuthenticateLocalAdminBypass(out var recoveredUser, out var recoveryError) || recoveredUser == null)
+        catch (Exception exception)
         {
-            StatusText.Text = $"Local admin recovery failed: {recoveryError ?? "unknown error"}";
-            return;
+            StatusText.Text = $"Password change failed: {exception.Message}";
         }
-
-        _currentUser = recoveredUser;
-        RefreshAuthUi(loadAccounts: true);
-        StatusText.Text = $"Local admin recovery unlocked this laptop as '{recoveredUser.Username}'.";
     }
 
-    private void OnCreateAccountClick(object sender, RoutedEventArgs e)
+    private void OnLocalAdminRecoveryClick(object sender, RoutedEventArgs e)
+    {
+        StatusText.Text = "Local admin recovery is disabled. Central server roles are authoritative.";
+    }
+
+    private async void OnCreateAccountClick(object sender, RoutedEventArgs e)
     {
         var username = SelfRegisterUsernameTextBox.Text.Trim();
         var password = SelfRegisterPasswordBox.Password;
@@ -603,43 +648,33 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_authStore.TryRegisterAccount(username, password, out var registerError))
+        try
         {
-            StatusText.Text = $"Account creation failed: {registerError ?? "unknown error"}";
-            return;
-        }
-
-        SelfRegisterPasswordBox.Password = string.Empty;
-        SelfRegisterConfirmPasswordBox.Password = string.Empty;
-
-        if (_currentUser == null &&
-            _authStore.TryAuthenticate(username, password, out var createdUser, out _) &&
-            createdUser != null)
-        {
-            _currentUser = createdUser;
+            CreateAccountButton.IsEnabled = false;
+            var registration = await _serverClient.RegisterAsync(username, password);
+            SelfRegisterPasswordBox.Password = string.Empty;
+            SelfRegisterConfirmPasswordBox.Password = string.Empty;
             SelfRegisterUsernameTextBox.Text = string.Empty;
-            RefreshAuthUi(loadAccounts: true);
-            StatusText.Text = $"Account '{createdUser.Username}' created and signed in as User.";
-            return;
+            StatusText.Text = $"Account '{registration.Username}' was registered and now awaits admin approval.";
         }
-
-        if (HasRole(UserRole.Admin))
+        catch (Exception exception)
         {
-            _ = RefreshAccountsFromStore(updateStatusOnError: true);
+            StatusText.Text = $"Account creation failed: {exception.Message}";
         }
-
-        SelfRegisterUsernameTextBox.Text = string.Empty;
-        StatusText.Text = $"Account '{username}' created as User. Admin promotion is required for higher roles.";
+        finally
+        {
+            CreateAccountButton.IsEnabled = _currentUser == null;
+        }
     }
 
-    private void OnRefreshAccountsClick(object sender, RoutedEventArgs e)
+    private async void OnRefreshAccountsClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.Admin, "manage accounts"))
         {
             return;
         }
 
-        if (!RefreshAccountsFromStore(updateStatusOnError: true))
+        if (!await RefreshAccountsFromServerAsync(updateStatusOnError: true))
         {
             return;
         }
@@ -649,28 +684,30 @@ public partial class MainWindow : Window
 
     private void OnAccountSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (AccountsListBox.SelectedItem is not AuthAccountSummary selected)
+        if (AccountsListBox.SelectedItem is not AdminAccountResponse selected)
         {
             return;
         }
 
         AccountUsernameTextBox.Text = selected.Username;
         AccountPasswordBox.Password = string.Empty;
-        AccountRoleComboBox.SelectedValue = selected.Role;
-        AccountEnabledCheckBox.IsChecked = selected.IsEnabled;
+        AccountRoleComboBox.SelectedValue = ParseRole(selected.Role);
+        AccountEnabledCheckBox.IsChecked = selected.IsActive;
+        AccountApprovedCheckBox.IsChecked = selected.IsApproved;
+        AccountUsernameTextBox.IsReadOnly = true;
+        AccountPasswordBox.IsEnabled = false;
     }
 
-    private void OnSaveAccountClick(object sender, RoutedEventArgs e)
+    private async void OnSaveAccountClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.Admin, "manage accounts"))
         {
             return;
         }
 
-        var username = AccountUsernameTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(username))
+        if (AccountsListBox.SelectedItem is not AdminAccountResponse selected)
         {
-            StatusText.Text = "Account username is required.";
+            StatusText.Text = "Select an account to update.";
             return;
         }
 
@@ -679,78 +716,72 @@ public partial class MainWindow : Window
             role = UserRole.User;
         }
 
-        var password = AccountPasswordBox.Password;
-        var passwordValue = string.IsNullOrWhiteSpace(password) ? null : password;
         var isEnabled = AccountEnabledCheckBox.IsChecked == true;
-
-        if (!_authStore.TryUpsertAccount(username, passwordValue, role, isEnabled, out var saveError))
+        var isApproved = AccountApprovedCheckBox.IsChecked == true;
+        try
         {
-            StatusText.Text = $"Account save failed: {saveError ?? "unknown error"}";
-            return;
+            await _serverClient.SetAccountApprovalAsync(selected.Id, isApproved);
+            await _serverClient.SetAccountRoleAsync(selected.Id, role.ToString());
+            await _serverClient.SetAccountActiveAsync(selected.Id, isEnabled);
+            AccountPasswordBox.Password = string.Empty;
+            if (!await RefreshAccountsFromServerAsync(updateStatusOnError: true))
+            {
+                return;
+            }
+            SyncCurrentUserFromAccountList();
+            RefreshAuthUi(loadAccounts: false);
+            StatusText.Text = $"Account '{selected.Username}' saved on the central server.";
         }
-
-        AccountPasswordBox.Password = string.Empty;
-        if (!RefreshAccountsFromStore(updateStatusOnError: true))
+        catch (Exception exception)
         {
-            return;
+            StatusText.Text = $"Account save failed: {exception.Message}";
         }
-
-        SyncCurrentUserFromAccountList();
-        RefreshAuthUi(loadAccounts: false);
-        StatusText.Text = $"Account '{username}' saved.";
     }
 
-    private void OnDeleteAccountClick(object sender, RoutedEventArgs e)
+    private async void OnDeleteAccountClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureRole(UserRole.Admin, "manage accounts"))
         {
             return;
         }
 
-        if (AccountsListBox.SelectedItem is not AuthAccountSummary selected)
+        if (AccountsListBox.SelectedItem is not AdminAccountResponse selected)
         {
-            StatusText.Text = "Select an account to delete.";
+            StatusText.Text = "Select an account to reset its password.";
             return;
         }
-
-        if (!_authStore.TryDeleteAccount(selected.Username, out var deleteError))
+        try
         {
-            StatusText.Text = $"Account delete failed: {deleteError ?? "unknown error"}";
-            return;
+            var temporaryPassword = await _serverClient.ResetAccountPasswordAsync(selected.Id);
+            AccountPasswordBox.Password = string.Empty;
+            await RefreshAccountsFromServerAsync(updateStatusOnError: true);
+            System.Windows.MessageBox.Show(
+                this,
+                $"Temporary password for '{selected.Username}':\n\n{temporaryPassword}\n\nIt must be changed at the next login.",
+                "Password reset",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            StatusText.Text = $"Password for '{selected.Username}' was reset.";
         }
-
-        if (_currentUser != null &&
-            string.Equals(_currentUser.Username, selected.Username, StringComparison.OrdinalIgnoreCase))
+        catch (Exception exception)
         {
-            _currentUser = null;
+            StatusText.Text = $"Password reset failed: {exception.Message}";
         }
-
-        ClearAccountEditor();
-        if (!RefreshAccountsFromStore(updateStatusOnError: true))
-        {
-            return;
-        }
-
-        SyncCurrentUserFromAccountList();
-        RefreshAuthUi(loadAccounts: false);
-        StatusText.Text = $"Account '{selected.Username}' deleted.";
     }
 
-    private bool RefreshAccountsFromStore(bool updateStatusOnError)
+    private async Task<bool> RefreshAccountsFromServerAsync(bool updateStatusOnError)
     {
-        if (!_authStore.TryListAccounts(out var summaries, out var error))
+        try
         {
-            if (updateStatusOnError)
-            {
-                StatusText.Text = $"Failed to load accounts: {error ?? "unknown error"}";
-            }
-
+            _accountSummaries = (await _serverClient.GetAccountsAsync()).ToList();
+            AccountsListBox.ItemsSource = _accountSummaries;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (updateStatusOnError) StatusText.Text = $"Failed to load accounts: {exception.Message}";
             return false;
         }
-
-        _accountSummaries = summaries;
-        AccountsListBox.ItemsSource = _accountSummaries;
-        return true;
     }
 
     private void SyncCurrentUserFromAccountList()
@@ -762,13 +793,13 @@ public partial class MainWindow : Window
 
         var updated = _accountSummaries.FirstOrDefault(summary =>
             string.Equals(summary.Username, _currentUser.Username, StringComparison.OrdinalIgnoreCase));
-        if (updated == null || !updated.IsEnabled)
+        if (updated == null || !updated.IsActive || !updated.IsApproved)
         {
             _currentUser = null;
             return;
         }
 
-        _currentUser = new AuthSessionUser(updated.Username, updated.Role);
+        _currentUser = new AuthSessionUser(updated.Username, ParseRole(updated.Role));
     }
 
     private static void ClearTextBox(TextBox textBox)
@@ -783,7 +814,148 @@ public partial class MainWindow : Window
         AccountPasswordBox.Password = string.Empty;
         AccountRoleComboBox.SelectedValue = UserRole.User;
         AccountEnabledCheckBox.IsChecked = true;
+        AccountApprovedCheckBox.IsChecked = false;
+        AccountUsernameTextBox.IsReadOnly = false;
     }
+
+    private void OnImportServerTrustClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "CashSloth trust file (*.cashsloth-trust)|*.cashsloth-trust"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var trust = _serverClient.ValidateTrustFile(dialog.FileName);
+            var confirmation = System.Windows.MessageBox.Show(
+                this,
+                $"Server: {trust.HttpsUrl}\n\nFingerprint:\n{trust.Fingerprint}\n\nCompare this fingerprint with the server window. Trust this server?",
+                "Verify CashSloth server",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (confirmation != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            _serverClient.AcceptTrust(trust);
+            OnlinePresetUrlTextBox.Text = trust.HttpsUrl;
+            OnlinePresetUrlTextBox.IsReadOnly = true;
+            ServerFingerprintTextBlock.Text = $"{trust.ServerId}\n{trust.Fingerprint}";
+            ServerConnectionStatusTextBlock.Text = "Server trusted. Enter a pairing code from the server window.";
+            _currentUser = null;
+            RefreshAuthUi(loadAccounts: false);
+            StatusText.Text = "Server trust imported and pinned.";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Trust import failed: {exception.Message}";
+        }
+    }
+
+    private async void OnPairDeviceClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var paired = await _serverClient.PairAsync(DevicePairingCodeTextBox.Text, DeviceNameTextBox.Text);
+            DevicePairingCodeTextBox.Text = string.Empty;
+            ServerConnectionStatusTextBlock.Text = $"Paired as {paired.DeviceName} ({paired.DeviceId:N})";
+            StatusText.Text = "This CSV2 installation is now paired with the central server.";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Device pairing failed: {exception.Message}";
+        }
+    }
+
+    private async Task RefreshCentralReferenceDataAsync()
+    {
+        try
+        {
+            var response = await _serverClient.GetExchangeRatesAsync();
+            _fxRateProvider.UpdateFromServer(response.Rates);
+            ApplySettings(save: false);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Central exchange rates unavailable; cached display rates remain active: {exception.Message}";
+        }
+    }
+
+    private async Task LoadActiveServerPresetAsync()
+    {
+        try
+        {
+            var serverPreset = await _serverClient.GetActivePresetWithOfflineFallbackAsync();
+            var localPreset = ToLocalPreset(serverPreset);
+            if (!_assortmentStore.TryUpsertPreset(localPreset, setActive: true, out var presetId, out var saveError))
+            {
+                StatusText.Text = $"Server preset cache could not be saved: {saveError}";
+                return;
+            }
+            if (!_assortmentStore.TryLoadPreset(presetId, out var catalog, out var categories, out var loadError))
+            {
+                StatusText.Text = $"Server preset cache could not be loaded: {loadError}";
+                return;
+            }
+            _activePresetId = presetId;
+            ApplyPresetCatalog(catalog, categories, $"Central preset '{localPreset.Name}' loaded.");
+            RefreshPresetControls(presetId);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Central preset unavailable: {exception.Message}";
+        }
+    }
+
+    private async Task TryRefreshStoredSessionAsync()
+    {
+        try
+        {
+            var session = await _serverClient.RefreshAsync();
+            _currentUser = ToLocalUser(session.User);
+            RefreshAuthUi(loadAccounts: true);
+            await LoadActiveServerPresetAsync();
+            await RefreshCentralReferenceDataAsync();
+            StatusText.Text = $"Server session refreshed for '{session.User.Username}'.";
+        }
+        catch
+        {
+            _currentUser = null;
+            RefreshAuthUi(loadAccounts: false);
+        }
+    }
+
+    private static UserRole ParseRole(string role) =>
+        Enum.TryParse<UserRole>(role, ignoreCase: false, out var parsed) ? parsed : UserRole.User;
+
+    private static AuthSessionUser ToLocalUser(UserProfileResponse user) =>
+        new(user.Username, ParseRole(user.Role));
+
+    private static AssortmentPresetDocument ToLocalPreset(PresetDocument preset) => new(
+        preset.Id,
+        preset.Name,
+        preset.Categories,
+        preset.Items.Select(item => new AssortmentPresetItemDocument(
+            item.Id,
+            item.Name,
+            item.UnitCents,
+            item.Category)).ToArray());
+
+    private static PresetDocument ToServerPreset(AssortmentPresetDocument preset) => new(
+        preset.Id,
+        preset.Name,
+        preset.Categories,
+        preset.Items.Select(item => new PresetItemDocument(
+            item.Id,
+            item.Name,
+            item.UnitCents,
+            item.Category)).ToArray());
 
     private bool EnsureRole(UserRole minimumRole, string action)
     {
@@ -2786,34 +2958,32 @@ public partial class MainWindow : Window
         return AssortmentPresetStore.NormalizePresetId(selected);
     }
 
-    private void RefreshOnlinePresetControls(string? preferredPresetId = null, bool updateStatusOnSuccess = false)
+    private async Task RefreshOnlinePresetControlsAsync(string? preferredPresetId = null, bool updateStatusOnSuccess = false)
     {
-        var serverUrl = OnlinePresetUrlTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(serverUrl))
+        if (_serverClient.Connection is null)
         {
             _onlinePresetSummaries = new List<AssortmentPresetSummary>();
             RenderOnlinePresetOptions(preferredPresetId);
             return;
         }
 
-        if (!_onlinePresetProvider.TryDownloadPresetSummaries(serverUrl, out var summaries, out var error))
+        try
         {
-            _onlinePresetSummaries = new List<AssortmentPresetSummary>();
+            var summaries = await _serverClient.GetPresetsAsync();
+            _onlinePresetSummaries = summaries
+                .Select(value => new AssortmentPresetSummary(value.Id, value.Name, value.IsActive, value.ItemCount))
+                .ToList();
             RenderOnlinePresetOptions(preferredPresetId);
-            if (!string.IsNullOrWhiteSpace(error))
+            if (updateStatusOnSuccess)
             {
-                StatusText.Text = Lf("status.online_presets_load_failed", error);
+                StatusText.Text = Lf("status.online_presets_loaded", _onlinePresetSummaries.Count);
             }
-
-            return;
         }
-
-        _onlinePresetSummaries = summaries;
-        RenderOnlinePresetOptions(preferredPresetId);
-
-        if (updateStatusOnSuccess)
+        catch (Exception exception)
         {
-            StatusText.Text = Lf("status.online_presets_loaded", _onlinePresetSummaries.Count);
+            _onlinePresetSummaries = new List<AssortmentPresetSummary>();
+            RenderOnlinePresetOptions(preferredPresetId);
+            StatusText.Text = Lf("status.online_presets_load_failed", exception.Message);
         }
     }
 

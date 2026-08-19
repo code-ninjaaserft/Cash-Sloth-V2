@@ -191,6 +191,24 @@
                     CornerRadius="4"
                     Padding="8">
               <StackPanel>
+                <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8"
+                        Margin="0,0,0,16">
+                  <StackPanel>
+                    <TextBlock Text="Central server trust &amp; device pairing" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <Button Content="Import .cashsloth-trust…" Height="34" Click="OnImportServerTrustClick" />
+                    <TextBlock x:Name="ServerFingerprintTextBlock" Text="No server trusted" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <TextBlock Text="Device name" Margin="0,8,0,2" />
+                    <TextBox x:Name="DeviceNameTextBox" Height="34" VerticalContentAlignment="Center" />
+                    <TextBlock Text="10-character pairing code" Margin="0,8,0,2" />
+                    <TextBox x:Name="DevicePairingCodeTextBox" Height="34" MaxLength="14" VerticalContentAlignment="Center" />
+                    <Button Content="Pair this device" Height="34" Margin="0,8,0,0" Click="OnPairDeviceClick" />
+                    <TextBlock x:Name="ServerConnectionStatusTextBlock" Text="Offline / not configured" TextWrapping="Wrap" Margin="0,6,0,0" />
+                  </StackPanel>
+                </Border>
+
                 <TextBlock Text="Session" FontWeight="SemiBold" Margin="0,0,0,6" />
                 <TextBlock x:Name="CurrentUserTextBlock" Text="Not signed in" Margin="0,0,0,8" />
 
@@ -208,12 +226,19 @@
                   <Button x:Name="LoginButton" Content="Login" Width="110" Height="34" Click="OnLoginClick" />
                   <Button x:Name="LogoutButton" Content="Logout" Width="110" Height="34" Margin="6,0,0,0" Click="OnLogoutClick" />
                 </WrapPanel>
+                <TextBlock Text="Change password (current / new)" Margin="0,10,0,2" />
+                <WrapPanel>
+                  <PasswordBox x:Name="CurrentPasswordChangeBox" Width="150" Height="34" />
+                  <PasswordBox x:Name="NewPasswordChangeBox" Width="150" Height="34" Margin="6,0,0,0" />
+                  <Button x:Name="ChangePasswordButton" Content="Change" Width="90" Height="34" Margin="6,0,0,0" Click="OnChangePasswordClick" />
+                </WrapPanel>
                 <Button x:Name="LocalAdminRecoveryButton"
-                        Content="Local admin recovery"
+                        Content="Local admin recovery removed"
                         Width="170"
                         Height="34"
                         Margin="0,8,0,0"
-                        Click="OnLocalAdminRecoveryClick" />
+                        Click="OnLocalAdminRecoveryClick"
+                        Visibility="Collapsed" />
 
                 <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
                         BorderThickness="1"
@@ -258,6 +283,7 @@
                 <TextBlock Text="Account management (Admin)" FontWeight="SemiBold" Margin="0,0,0,6" />
                 <ListBox x:Name="AccountsListBox"
                          Height="130"
+                         DisplayMemberPath="Username"
                          SelectionChanged="OnAccountSelectionChanged" />
                 <Button x:Name="RefreshAccountsButton"
                         Content="Refresh accounts"
@@ -287,10 +313,14 @@
                           Content="Enabled"
                           Margin="0,8,0,0"
                           IsChecked="True" />
+                <CheckBox x:Name="AccountApprovedCheckBox"
+                          Content="Approved"
+                          Margin="0,8,0,0"
+                          IsChecked="False" />
 
                 <WrapPanel Margin="0,8,0,0">
                   <Button x:Name="SaveAccountButton" Content="Save account" Width="130" Height="34" Click="OnSaveAccountClick" />
-                  <Button x:Name="DeleteAccountButton" Content="Delete account" Width="130" Height="34" Margin="6,0,0,0" Click="OnDeleteAccountClick" />
+                  <Button x:Name="DeleteAccountButton" Content="Reset password" Width="130" Height="34" Margin="6,0,0,0" Click="OnDeleteAccountClick" />
                 </WrapPanel>
               </StackPanel>
             </Border>

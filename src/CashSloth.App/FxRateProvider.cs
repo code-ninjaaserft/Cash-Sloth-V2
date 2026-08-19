@@ -1,16 +1,7 @@
-using System.Globalization;
-using System.Net.Http;
-using System.Text.Json;
-
 namespace CashSloth.App;
 
 internal sealed class FxRateProvider
 {
-    private readonly HttpClient _httpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(2)
-    };
-
     private readonly Dictionary<UiCurrency, decimal> _ratesFromChf = new()
     {
         [UiCurrency.Chf] = 1m,
@@ -28,45 +19,24 @@ internal sealed class FxRateProvider
 
     internal bool TryRefreshRates(out string? error)
     {
-        const string url = "https://api.frankfurter.app/latest?from=CHF&to=EUR,USD,GBP";
-
-        try
-        {
-            var json = _httpClient.GetStringAsync(url).GetAwaiter().GetResult();
-            using var document = JsonDocument.Parse(json);
-            if (!document.RootElement.TryGetProperty("rates", out var ratesElement))
-            {
-                error = "Exchange rates payload has no 'rates'.";
-                return false;
-            }
-
-            UpdateRateIfPresent(ratesElement, "EUR", UiCurrency.Eur);
-            UpdateRateIfPresent(ratesElement, "USD", UiCurrency.Usd);
-            UpdateRateIfPresent(ratesElement, "GBP", UiCurrency.Gbp);
-            _ratesFromChf[UiCurrency.Chf] = 1m;
-
-            error = null;
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+        error = "Exchange rates are refreshed through the configured CashSloth server.";
+        return false;
     }
 
-    private void UpdateRateIfPresent(JsonElement ratesElement, string symbol, UiCurrency currency)
+    internal void UpdateFromServer(IReadOnlyDictionary<string, decimal> rates)
     {
-        if (!ratesElement.TryGetProperty(symbol, out var valueElement))
+        UpdateRateIfPresent(rates, "EUR", UiCurrency.Eur);
+        UpdateRateIfPresent(rates, "USD", UiCurrency.Usd);
+        UpdateRateIfPresent(rates, "GBP", UiCurrency.Gbp);
+        _ratesFromChf[UiCurrency.Chf] = 1m;
+    }
+
+    private void UpdateRateIfPresent(IReadOnlyDictionary<string, decimal> rates, string symbol, UiCurrency currency)
+    {
+        if (!rates.TryGetValue(symbol, out var rate) || rate <= 0m)
         {
             return;
         }
-
-        if (!decimal.TryParse(valueElement.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var rate) || rate <= 0m)
-        {
-            return;
-        }
-
         _ratesFromChf[currency] = rate;
     }
 }
