@@ -261,7 +261,7 @@ internal sealed class AssortmentPresetStore
 
         if (string.IsNullOrWhiteSpace(basePresetId))
         {
-            basePresetId = "ONLINE_PRESET";
+            basePresetId = "CENTRAL_PRESET";
         }
 
         persistedPresetId = basePresetId;

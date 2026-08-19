@@ -40,12 +40,17 @@ internal sealed class CashSlothServerClient : IDisposable
     internal CashSlothClientConnection? Connection => _storage.LoadConnection();
     internal CashSlothClientSession? Session { get; private set; }
     internal bool IsPaired => Connection?.DeviceId is not null;
+    internal event Action<UserProfileResponse?>? SessionChanged;
 
     internal ServerTrustDocument ValidateTrustFile(string path)
     {
         var trust = JsonSerializer.Deserialize<ServerTrustDocument>(File.ReadAllText(path), _jsonOptions)
             ?? throw new InvalidDataException("Trust-Datei ist ungültig.");
         if (trust.Version != 1 ||
+            string.IsNullOrWhiteSpace(trust.ServerId) ||
+            string.IsNullOrWhiteSpace(trust.KeyId) ||
+            string.IsNullOrWhiteSpace(trust.PublicKey) ||
+            string.IsNullOrWhiteSpace(trust.Fingerprint) ||
             !Uri.TryCreate(trust.HttpsUrl, UriKind.Absolute, out var uri) ||
             uri.Scheme != Uri.UriSchemeHttps)
         {
@@ -62,7 +67,7 @@ internal sealed class CashSlothServerClient : IDisposable
                 throw new CryptographicException();
             }
         }
-        catch (Exception exception) when (exception is FormatException or CryptographicException)
+        catch (Exception exception) when (exception is FormatException or CryptographicException or ArgumentException)
         {
             throw new InvalidDataException("Trust-Datei enthält keinen gültigen ECDSA-P-256-Schlüssel.");
         }
@@ -81,7 +86,8 @@ internal sealed class CashSlothServerClient : IDisposable
         var current = Connection;
         var sameServer = current is not null &&
                          current.Trust.ServerId == trust.ServerId &&
-                         current.Trust.KeyId == trust.KeyId;
+                         current.Trust.KeyId == trust.KeyId &&
+                         string.Equals(current.Trust.Fingerprint, trust.Fingerprint, StringComparison.OrdinalIgnoreCase);
         _storage.SaveConnection(new CashSlothClientConnection(
             trust,
             sameServer ? current!.DeviceId : null,
@@ -161,13 +167,21 @@ internal sealed class CashSlothServerClient : IDisposable
             ClearSession();
             throw new CashSlothServerException(401, "refresh_token_expired", "Die gespeicherte Sitzung ist abgelaufen.");
         }
-        var proof = await CreateProofAsync("refresh", BuildPayloadHash(session.RefreshToken), cancellationToken);
-        var response = await SendPublicAsync<RefreshRequest, AuthTokenResponse>(
-            HttpMethod.Post,
-            "api/v1/auth/refresh",
-            new RefreshRequest(session.RefreshToken, proof),
-            cancellationToken);
-        return SaveAndValidateSession(response);
+        try
+        {
+            var proof = await CreateProofAsync("refresh", BuildPayloadHash(session.RefreshToken), cancellationToken);
+            var response = await SendPublicAsync<RefreshRequest, AuthTokenResponse>(
+                HttpMethod.Post,
+                "api/v1/auth/refresh",
+                new RefreshRequest(session.RefreshToken, proof),
+                cancellationToken);
+            return SaveAndValidateSession(response);
+        }
+        catch (CashSlothServerException exception) when (exception.StatusCode is 401 or 403)
+        {
+            ClearSession();
+            throw;
+        }
     }
 
     internal async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -191,12 +205,42 @@ internal sealed class CashSlothServerClient : IDisposable
         }
     }
 
-    internal Task ChangePasswordAsync(string currentPassword, string newPassword, CancellationToken cancellationToken = default) =>
-        SendNoContentAsync(
+    internal async Task ChangePasswordAsync(
+        string currentPassword,
+        string newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        await SendNoContentAsync(
             HttpMethod.Post,
             "api/v1/auth/change-password",
             new ChangePasswordRequest(currentPassword, newPassword),
             cancellationToken);
+
+        if (Session is not null)
+        {
+            Session = Session with { User = Session.User with { MustChangePassword = false } };
+            _storage.SaveSession(Session);
+            SessionChanged?.Invoke(Session.User);
+        }
+    }
+
+    internal async Task<UserProfileResponse> GetProfileAsync(CancellationToken cancellationToken = default)
+    {
+        var profile = await SendAuthorizedAsync<object?, UserProfileResponse>(
+            HttpMethod.Get,
+            "api/v1/auth/me",
+            null,
+            cancellationToken)
+            ?? throw new InvalidDataException("Server lieferte kein Benutzerprofil.");
+
+        if (Session is not null)
+        {
+            Session = Session with { User = profile };
+            _storage.SaveSession(Session);
+            SessionChanged?.Invoke(profile);
+        }
+        return profile;
+    }
 
     internal async Task<IReadOnlyList<PresetSummaryResponse>> GetPresetsAsync(CancellationToken cancellationToken = default) =>
         await SendAuthorizedAsync<object?, List<PresetSummaryResponse>>(HttpMethod.Get, "api/v1/presets", null, cancellationToken)
@@ -336,6 +380,7 @@ internal sealed class CashSlothServerClient : IDisposable
             response.User);
         _storage.SaveSession(session);
         Session = session;
+        SessionChanged?.Invoke(session.User);
         return session;
     }
 
@@ -356,8 +401,13 @@ internal sealed class CashSlothServerClient : IDisposable
 
     private void ClearSession()
     {
+        var hadSession = Session is not null || _storage.LoadSession() is not null;
         Session = null;
         _storage.ClearSession();
+        if (hadSession)
+        {
+            SessionChanged?.Invoke(null);
+        }
     }
 
     private async Task<DeviceProof> CreateProofAsync(
@@ -413,13 +463,30 @@ internal sealed class CashSlothServerClient : IDisposable
         {
             await RefreshAsync(cancellationToken);
         }
-        using var message = CreateMessage(method, path, request, includeAuthentication: true);
-        using var response = await _httpClient.SendAsync(message, cancellationToken);
-        if (allowNoContent && response.StatusCode == HttpStatusCode.NoContent)
+
+        using (var message = CreateMessage(method, path, request, includeAuthentication: true))
+        using (var response = await _httpClient.SendAsync(message, cancellationToken))
+        {
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
+            {
+                if (allowNoContent && response.StatusCode == HttpStatusCode.NoContent)
+                {
+                    return default;
+                }
+                return await ReadResponseAsync<TResponse>(response, cancellationToken);
+            }
+        }
+
+        // A locally valid token can still be rejected after a role/session change.
+        // Refresh once to synchronize with the server's authoritative account state.
+        await RefreshAsync(cancellationToken);
+        using var retryMessage = CreateMessage(method, path, request, includeAuthentication: true);
+        using var retryResponse = await _httpClient.SendAsync(retryMessage, cancellationToken);
+        if (allowNoContent && retryResponse.StatusCode == HttpStatusCode.NoContent)
         {
             return default;
         }
-        return await ReadResponseAsync<TResponse>(response, cancellationToken);
+        return await ReadResponseAsync<TResponse>(retryResponse, cancellationToken);
     }
 
     private async Task SendNoContentAsync<TRequest>(HttpMethod method, string path, TRequest request, CancellationToken cancellationToken) =>

@@ -52,9 +52,9 @@ public partial class MainWindow : Window
     private AppSettings _settings = AppSettings.Default;
     private string _activeCategory = AllCategoriesToken;
     private string _activePresetId = DefaultPresetSelection;
-    private AuthSessionUser? _currentUser;
+    private UserProfileResponse? _currentUser;
     private List<AdminAccountResponse> _accountSummaries = new();
-    private List<AssortmentPresetSummary> _onlinePresetSummaries = new();
+    private List<AssortmentPresetSummary> _centralPresetSummaries = new();
     private int _quantityEditLineIndex = -1;
     private int _quantityEditCurrentQty;
     private string _quantityEditItemId = string.Empty;
@@ -63,6 +63,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _serverClient = new CashSlothServerClient(_serverStorage);
+        _serverClient.SessionChanged += OnServerSessionChanged;
         InitializeComponent();
         LoadAndApplySettings();
 
@@ -214,14 +215,14 @@ public partial class MainWindow : Window
         RefreshPresetControls(ResolveSelectedPresetId());
     }
 
-    private async void OnRefreshOnlinePresetListClick(object sender, RoutedEventArgs e)
+    private async void OnRefreshCentralPresetListClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.User, "import online presets"))
+        if (!EnsureRole(CashSlothRole.User, "import central presets"))
         {
             return;
         }
 
-        await RefreshOnlinePresetControlsAsync(preferredPresetId: ResolveSelectedOnlinePresetId(), updateStatusOnSuccess: true);
+        await RefreshCentralPresetControlsAsync(preferredPresetId: ResolveSelectedCentralPresetId(), updateStatusOnSuccess: true);
     }
 
     private void OnSwitchPresetClick(object sender, RoutedEventArgs e)
@@ -317,9 +318,9 @@ public partial class MainWindow : Window
         RefreshPresetControls(_activePresetId);
     }
 
-    private async void OnImportOnlinePresetClick(object sender, RoutedEventArgs e)
+    private async void OnImportCentralPresetClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.User, "import online presets"))
+        if (!EnsureRole(CashSlothRole.User, "import central presets"))
         {
             return;
         }
@@ -330,17 +331,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        var onlinePresetId = ResolveSelectedOnlinePresetId();
-        if (string.IsNullOrWhiteSpace(onlinePresetId))
+        var centralPresetId = ResolveSelectedCentralPresetId();
+        if (string.IsNullOrWhiteSpace(centralPresetId))
         {
-            StatusText.Text = L("status.online_preset_select_required");
+            StatusText.Text = L("status.central_preset_select_required");
             return;
         }
 
         AssortmentPresetDocument downloadedPreset;
         try
         {
-            var serverPreset = await _serverClient.GetPresetAsync(onlinePresetId);
+            var serverPreset = await _serverClient.GetPresetAsync(centralPresetId);
             downloadedPreset = ToLocalPreset(serverPreset);
         }
         catch (Exception exception)
@@ -349,9 +350,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(OnlinePresetNameTextBox.Text))
+        if (!string.IsNullOrWhiteSpace(CentralPresetNameTextBox.Text))
         {
-            downloadedPreset = downloadedPreset with { Name = OnlinePresetNameTextBox.Text.Trim() };
+            downloadedPreset = downloadedPreset with { Name = CentralPresetNameTextBox.Text.Trim() };
         }
 
         var setActive = SetImportedPresetActiveCheckBox.IsChecked == true;
@@ -382,13 +383,13 @@ public partial class MainWindow : Window
         }
 
         RefreshPresetControls(persistedPresetId);
-        await RefreshOnlinePresetControlsAsync(preferredPresetId: onlinePresetId, updateStatusOnSuccess: false);
-        OnlinePresetNameTextBox.Text = string.Empty;
+        await RefreshCentralPresetControlsAsync(preferredPresetId: centralPresetId, updateStatusOnSuccess: false);
+        CentralPresetNameTextBox.Text = string.Empty;
     }
 
     private async void OnUploadPresetClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.Creator, "upload presets"))
+        if (!EnsureRole(CashSlothRole.Creator, "upload presets"))
         {
             return;
         }
@@ -412,9 +413,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(OnlinePresetNameTextBox.Text))
+        if (!string.IsNullOrWhiteSpace(CentralPresetNameTextBox.Text))
         {
-            preset = preset with { Name = OnlinePresetNameTextBox.Text.Trim() };
+            preset = preset with { Name = CentralPresetNameTextBox.Text.Trim() };
         }
 
         try
@@ -429,7 +430,7 @@ public partial class MainWindow : Window
                 var existing = await _serverClient.GetPresetAsync(upload.Id);
                 await _serverClient.UpdatePresetAsync(upload with { Version = existing.Version });
             }
-            if (SetImportedPresetActiveCheckBox.IsChecked == true && HasRole(UserRole.Admin))
+            if (SetImportedPresetActiveCheckBox.IsChecked == true && HasRole(CashSlothRole.Admin))
             {
                 await _serverClient.SetActivePresetAsync(upload.Id);
             }
@@ -441,13 +442,13 @@ public partial class MainWindow : Window
         }
 
         StatusText.Text = Lf("status.preset_uploaded", preset.Name);
-        await RefreshOnlinePresetControlsAsync(preferredPresetId: AssortmentPresetStore.NormalizePresetId(preset.Id), updateStatusOnSuccess: false);
+        await RefreshCentralPresetControlsAsync(preferredPresetId: AssortmentPresetStore.NormalizePresetId(preset.Id), updateStatusOnSuccess: false);
     }
 
     private void InitializeAuthUi()
     {
         RefreshAccountRoleOptions();
-        AccountRoleComboBox.SelectedValue = UserRole.User;
+        AccountRoleComboBox.SelectedValue = CashSlothRole.User;
         AccountEnabledCheckBox.IsChecked = true;
         AccountApprovedCheckBox.IsChecked = false;
         DeviceNameTextBox.Text = Environment.MachineName;
@@ -455,8 +456,8 @@ public partial class MainWindow : Window
         var connection = _serverClient.Connection;
         if (connection is not null)
         {
-            OnlinePresetUrlTextBox.Text = connection.Trust.HttpsUrl;
-            OnlinePresetUrlTextBox.IsReadOnly = true;
+            CentralServerUrlTextBox.Text = connection.Trust.HttpsUrl;
+            CentralServerUrlTextBox.IsReadOnly = true;
             ServerFingerprintTextBlock.Text = $"{connection.Trust.ServerId}\n{connection.Trust.Fingerprint}";
             ServerConnectionStatusTextBlock.Text = connection.DeviceId is null
                 ? "Server trusted; this installation is not paired yet."
@@ -467,7 +468,7 @@ public partial class MainWindow : Window
         var session = _serverClient.Session;
         if (session is not null && _serverClient.IsAccessTokenLocallyValid(session.AccessToken, out _))
         {
-            _currentUser = ToLocalUser(session.User);
+            _currentUser = session.User;
             StatusText.Text = $"Restored locally verified session for '{session.User.Username}'.";
         }
         else if (session is not null)
@@ -476,7 +477,7 @@ public partial class MainWindow : Window
         }
 
         RefreshAuthUi(loadAccounts: true);
-        if (_currentUser is not null)
+        if (_currentUser is { MustChangePassword: false })
         {
             _ = LoadActiveServerPresetAsync();
             _ = RefreshCentralReferenceDataAsync();
@@ -495,15 +496,15 @@ public partial class MainWindow : Window
 
     private void RefreshAccountRoleOptions()
     {
-        var selected = AccountRoleComboBox.SelectedValue is UserRole role ? role : UserRole.User;
+        var selected = AccountRoleComboBox.SelectedValue is CashSlothRole role ? role : CashSlothRole.User;
         var options = UiLocalizer.BuildRoleOptions(_settings.Language);
         AccountRoleComboBox.ItemsSource = options;
         AccountRoleComboBox.SelectedValue = options.Any(option => option.Value == selected)
             ? selected
-            : UserRole.User;
+            : CashSlothRole.User;
     }
 
-    private string ResolveRoleLabel(UserRole role)
+    private string ResolveRoleLabel(CashSlothRole role)
     {
         return UiLocalizer.BuildRoleOptions(_settings.Language)
             .FirstOrDefault(option => option.Value == role)?.Label ?? role.ToString();
@@ -512,36 +513,40 @@ public partial class MainWindow : Window
     private void RefreshAuthUi(bool loadAccounts)
     {
         var isSignedIn = _currentUser != null;
+        var isPaired = _serverClient.IsPaired;
         CurrentUserTextBlock.Text = isSignedIn
-            ? $"{_currentUser!.Username} ({ResolveRoleLabel(_currentUser.Role)})"
+            ? $"{_currentUser!.Username} ({ResolveRoleLabel(ParseRole(_currentUser.Role))})"
             : L("account.not_signed_in");
 
-        LoginUsernameTextBox.IsEnabled = !isSignedIn;
-        LoginPasswordBox.IsEnabled = !isSignedIn;
-        LoginButton.IsEnabled = !isSignedIn;
+        LoginUsernameTextBox.IsEnabled = !isSignedIn && isPaired;
+        LoginPasswordBox.IsEnabled = !isSignedIn && isPaired;
+        LoginButton.IsEnabled = !isSignedIn && isPaired;
         LogoutButton.IsEnabled = isSignedIn;
         CurrentPasswordChangeBox.IsEnabled = isSignedIn;
         NewPasswordChangeBox.IsEnabled = isSignedIn;
         ChangePasswordButton.IsEnabled = isSignedIn;
-        CreateAccountButton.IsEnabled = !isSignedIn && _serverClient.IsPaired;
-        LocalAdminRecoveryButton.IsEnabled = false;
+        SelfRegisterUsernameTextBox.IsEnabled = !isSignedIn && isPaired;
+        SelfRegisterPasswordBox.IsEnabled = !isSignedIn && isPaired;
+        SelfRegisterConfirmPasswordBox.IsEnabled = !isSignedIn && isPaired;
+        CreateAccountButton.IsEnabled = !isSignedIn && isPaired;
+        DeviceNameTextBox.IsEnabled = !isPaired && _serverClient.Connection is not null;
+        DevicePairingCodeTextBox.IsEnabled = !isPaired && _serverClient.Connection is not null;
+        PairDeviceButton.IsEnabled = !isPaired && _serverClient.Connection is not null;
+        var canDownload = HasRole(CashSlothRole.User);
+        var canUpload = HasRole(CashSlothRole.Creator);
+        var canManage = HasRole(CashSlothRole.Admin);
 
-        var canDownload = HasRole(UserRole.User);
-        var canUpload = HasRole(UserRole.Creator);
-        var canManage = HasRole(UserRole.Admin);
-
-        OnlinePresetUrlTextBox.IsEnabled = canDownload;
-        RefreshOnlinePresetListButton.IsEnabled = canDownload;
-        OnlinePresetComboBox.IsEnabled = canDownload;
-        OnlinePresetNameTextBox.IsEnabled = canDownload;
+        CentralServerUrlTextBox.IsEnabled = canDownload;
+        RefreshCentralPresetListButton.IsEnabled = canDownload;
+        CentralPresetComboBox.IsEnabled = canDownload;
+        CentralPresetNameTextBox.IsEnabled = canDownload;
         SetImportedPresetActiveCheckBox.IsEnabled = canDownload;
-        ImportOnlinePresetButton.IsEnabled = canDownload;
+        ImportCentralPresetButton.IsEnabled = canDownload;
         UploadPresetButton.IsEnabled = canUpload;
 
         AccountsListBox.IsEnabled = canManage;
         RefreshAccountsButton.IsEnabled = canManage;
         AccountUsernameTextBox.IsEnabled = canManage;
-        AccountPasswordBox.IsEnabled = canManage;
         AccountRoleComboBox.IsEnabled = canManage;
         AccountEnabledCheckBox.IsEnabled = canManage;
         AccountApprovedCheckBox.IsEnabled = canManage;
@@ -568,10 +573,14 @@ public partial class MainWindow : Window
         {
             LoginButton.IsEnabled = false;
             var session = await _serverClient.LoginAsync(username, password);
-            _currentUser = ToLocalUser(session.User);
+            _currentUser = session.User;
             LoginPasswordBox.Password = string.Empty;
             RefreshAuthUi(loadAccounts: true);
-            await RefreshCentralReferenceDataAsync();
+            if (!session.User.MustChangePassword)
+            {
+                await LoadActiveServerPresetAsync();
+                await RefreshCentralReferenceDataAsync();
+            }
             StatusText.Text = session.User.MustChangePassword
                 ? "Signed in with a temporary password. Change it before using central functions."
                 : $"Signed in as '{session.User.Username}' ({session.User.Role}).";
@@ -581,6 +590,18 @@ public partial class MainWindow : Window
             StatusText.Text = $"Login failed: {exception.Message}";
             RefreshAuthUi(loadAccounts: false);
         }
+    }
+
+    private void OnServerSessionChanged(UserProfileResponse? user)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.BeginInvoke(() => OnServerSessionChanged(user));
+            return;
+        }
+
+        _currentUser = user;
+        RefreshAuthUi(loadAccounts: false);
     }
 
     private async void OnLogoutClick(object sender, RoutedEventArgs e)
@@ -606,22 +627,37 @@ public partial class MainWindow : Window
 
     private async void OnChangePasswordClick(object sender, RoutedEventArgs e)
     {
+        var passwordChanged = false;
         try
         {
             await _serverClient.ChangePasswordAsync(CurrentPasswordChangeBox.Password, NewPasswordChangeBox.Password);
+            passwordChanged = true;
+            _currentUser = await _serverClient.GetProfileAsync();
             CurrentPasswordChangeBox.Clear();
             NewPasswordChangeBox.Clear();
+            RefreshAuthUi(loadAccounts: true);
+            await LoadActiveServerPresetAsync();
+            await RefreshCentralReferenceDataAsync();
             StatusText.Text = "Password changed successfully.";
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"Password change failed: {exception.Message}";
+            if (passwordChanged)
+            {
+                CurrentPasswordChangeBox.Clear();
+                NewPasswordChangeBox.Clear();
+                if (_currentUser is not null)
+                {
+                    _currentUser = _currentUser with { MustChangePassword = false };
+                    RefreshAuthUi(loadAccounts: false);
+                }
+                StatusText.Text = $"Password changed, but the server profile could not be refreshed: {exception.Message}";
+            }
+            else
+            {
+                StatusText.Text = $"Password change failed: {exception.Message}";
+            }
         }
-    }
-
-    private void OnLocalAdminRecoveryClick(object sender, RoutedEventArgs e)
-    {
-        StatusText.Text = "Local admin recovery is disabled. Central server roles are authoritative.";
     }
 
     private async void OnCreateAccountClick(object sender, RoutedEventArgs e)
@@ -663,13 +699,13 @@ public partial class MainWindow : Window
         }
         finally
         {
-            CreateAccountButton.IsEnabled = _currentUser == null;
+            CreateAccountButton.IsEnabled = _currentUser == null && _serverClient.IsPaired;
         }
     }
 
     private async void OnRefreshAccountsClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.Admin, "manage accounts"))
+        if (!EnsureRole(CashSlothRole.Admin, "manage accounts"))
         {
             return;
         }
@@ -690,17 +726,15 @@ public partial class MainWindow : Window
         }
 
         AccountUsernameTextBox.Text = selected.Username;
-        AccountPasswordBox.Password = string.Empty;
         AccountRoleComboBox.SelectedValue = ParseRole(selected.Role);
         AccountEnabledCheckBox.IsChecked = selected.IsActive;
         AccountApprovedCheckBox.IsChecked = selected.IsApproved;
         AccountUsernameTextBox.IsReadOnly = true;
-        AccountPasswordBox.IsEnabled = false;
     }
 
     private async void OnSaveAccountClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.Admin, "manage accounts"))
+        if (!EnsureRole(CashSlothRole.Admin, "manage accounts"))
         {
             return;
         }
@@ -711,19 +745,27 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (AccountRoleComboBox.SelectedValue is not UserRole role)
+        if (AccountRoleComboBox.SelectedValue is not CashSlothRole role)
         {
-            role = UserRole.User;
+            role = CashSlothRole.User;
         }
 
         var isEnabled = AccountEnabledCheckBox.IsChecked == true;
         var isApproved = AccountApprovedCheckBox.IsChecked == true;
         try
         {
-            await _serverClient.SetAccountApprovalAsync(selected.Id, isApproved);
-            await _serverClient.SetAccountRoleAsync(selected.Id, role.ToString());
-            await _serverClient.SetAccountActiveAsync(selected.Id, isEnabled);
-            AccountPasswordBox.Password = string.Empty;
+            if (selected.IsApproved != isApproved)
+            {
+                await _serverClient.SetAccountApprovalAsync(selected.Id, isApproved);
+            }
+            if (selected.IsActive != isEnabled)
+            {
+                await _serverClient.SetAccountActiveAsync(selected.Id, isEnabled);
+            }
+            if (!string.Equals(selected.Role, role.ToString(), StringComparison.Ordinal))
+            {
+                await _serverClient.SetAccountRoleAsync(selected.Id, role.ToString());
+            }
             if (!await RefreshAccountsFromServerAsync(updateStatusOnError: true))
             {
                 return;
@@ -740,7 +782,7 @@ public partial class MainWindow : Window
 
     private async void OnDeleteAccountClick(object sender, RoutedEventArgs e)
     {
-        if (!EnsureRole(UserRole.Admin, "manage accounts"))
+        if (!EnsureRole(CashSlothRole.Admin, "manage accounts"))
         {
             return;
         }
@@ -753,7 +795,6 @@ public partial class MainWindow : Window
         try
         {
             var temporaryPassword = await _serverClient.ResetAccountPasswordAsync(selected.Id);
-            AccountPasswordBox.Password = string.Empty;
             await RefreshAccountsFromServerAsync(updateStatusOnError: true);
             System.Windows.MessageBox.Show(
                 this,
@@ -799,7 +840,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        _currentUser = new AuthSessionUser(updated.Username, ParseRole(updated.Role));
+        _currentUser = _currentUser with
+        {
+            Username = updated.Username,
+            Role = updated.Role,
+            IsApproved = updated.IsApproved,
+            IsActive = updated.IsActive,
+            MustChangePassword = updated.MustChangePassword
+        };
     }
 
     private static void ClearTextBox(TextBox textBox)
@@ -811,11 +859,10 @@ public partial class MainWindow : Window
     {
         AccountsListBox.SelectedItem = null;
         ClearTextBox(AccountUsernameTextBox);
-        AccountPasswordBox.Password = string.Empty;
-        AccountRoleComboBox.SelectedValue = UserRole.User;
+        AccountRoleComboBox.SelectedValue = CashSlothRole.User;
         AccountEnabledCheckBox.IsChecked = true;
         AccountApprovedCheckBox.IsChecked = false;
-        AccountUsernameTextBox.IsReadOnly = false;
+        AccountUsernameTextBox.IsReadOnly = true;
     }
 
     private void OnImportServerTrustClick(object sender, RoutedEventArgs e)
@@ -844,12 +891,18 @@ public partial class MainWindow : Window
             }
 
             _serverClient.AcceptTrust(trust);
-            OnlinePresetUrlTextBox.Text = trust.HttpsUrl;
-            OnlinePresetUrlTextBox.IsReadOnly = true;
+            CentralServerUrlTextBox.Text = trust.HttpsUrl;
+            CentralServerUrlTextBox.IsReadOnly = true;
             ServerFingerprintTextBlock.Text = $"{trust.ServerId}\n{trust.Fingerprint}";
-            ServerConnectionStatusTextBlock.Text = "Server trusted. Enter a pairing code from the server window.";
-            _currentUser = null;
-            RefreshAuthUi(loadAccounts: false);
+            var connection = _serverClient.Connection;
+            ServerConnectionStatusTextBlock.Text = connection?.DeviceId is null
+                ? "Server trusted. Enter a pairing code from the server window."
+                : $"Paired as {connection.DeviceName} ({connection.DeviceId:N})";
+            var session = _serverClient.Session;
+            _currentUser = session is not null && _serverClient.IsAccessTokenLocallyValid(session.AccessToken, out _)
+                ? session.User
+                : null;
+            RefreshAuthUi(loadAccounts: true);
             StatusText.Text = "Server trust imported and pinned.";
         }
         catch (Exception exception)
@@ -865,6 +918,7 @@ public partial class MainWindow : Window
             var paired = await _serverClient.PairAsync(DevicePairingCodeTextBox.Text, DeviceNameTextBox.Text);
             DevicePairingCodeTextBox.Text = string.Empty;
             ServerConnectionStatusTextBlock.Text = $"Paired as {paired.DeviceName} ({paired.DeviceId:N})";
+            RefreshAuthUi(loadAccounts: false);
             StatusText.Text = "This CSV2 installation is now paired with the central server.";
         }
         catch (Exception exception)
@@ -918,10 +972,13 @@ public partial class MainWindow : Window
         try
         {
             var session = await _serverClient.RefreshAsync();
-            _currentUser = ToLocalUser(session.User);
+            _currentUser = session.User;
             RefreshAuthUi(loadAccounts: true);
-            await LoadActiveServerPresetAsync();
-            await RefreshCentralReferenceDataAsync();
+            if (!session.User.MustChangePassword)
+            {
+                await LoadActiveServerPresetAsync();
+                await RefreshCentralReferenceDataAsync();
+            }
             StatusText.Text = $"Server session refreshed for '{session.User.Username}'.";
         }
         catch
@@ -931,11 +988,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private static UserRole ParseRole(string role) =>
-        Enum.TryParse<UserRole>(role, ignoreCase: false, out var parsed) ? parsed : UserRole.User;
-
-    private static AuthSessionUser ToLocalUser(UserProfileResponse user) =>
-        new(user.Username, ParseRole(user.Role));
+    private static CashSlothRole ParseRole(string role) =>
+        Enum.TryParse<CashSlothRole>(role, ignoreCase: false, out var parsed) ? parsed : CashSlothRole.User;
 
     private static AssortmentPresetDocument ToLocalPreset(PresetDocument preset) => new(
         preset.Id,
@@ -957,11 +1011,17 @@ public partial class MainWindow : Window
             item.UnitCents,
             item.Category)).ToArray());
 
-    private bool EnsureRole(UserRole minimumRole, string action)
+    private bool EnsureRole(CashSlothRole minimumRole, string action)
     {
         if (_currentUser == null)
         {
             StatusText.Text = $"Sign in is required to {action}.";
+            return false;
+        }
+
+        if (_currentUser.MustChangePassword)
+        {
+            StatusText.Text = "Change the temporary password before using central server functions.";
             return false;
         }
 
@@ -974,9 +1034,11 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private bool HasRole(UserRole minimumRole)
+    private bool HasRole(CashSlothRole minimumRole)
     {
-        return _currentUser != null && _currentUser.Role >= minimumRole;
+        return _currentUser != null &&
+               !_currentUser.MustChangePassword &&
+               ParseRole(_currentUser.Role) >= minimumRole;
     }
 
     private void InitializeSalesUi()
@@ -1540,6 +1602,8 @@ public partial class MainWindow : Window
         CloseCartQuantityOverlay();
         CloseCustomerDisplay();
         _eventDiscoveryService.Dispose();
+        _serverClient.SessionChanged -= OnServerSessionChanged;
+        _serverClient.Dispose();
 
         if (_cart != IntPtr.Zero)
         {
@@ -2948,9 +3012,9 @@ public partial class MainWindow : Window
         return candidate;
     }
 
-    private string? ResolveSelectedOnlinePresetId()
+    private string? ResolveSelectedCentralPresetId()
     {
-        if (OnlinePresetComboBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
+        if (CentralPresetComboBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
         {
             return null;
         }
@@ -2958,63 +3022,63 @@ public partial class MainWindow : Window
         return AssortmentPresetStore.NormalizePresetId(selected);
     }
 
-    private async Task RefreshOnlinePresetControlsAsync(string? preferredPresetId = null, bool updateStatusOnSuccess = false)
+    private async Task RefreshCentralPresetControlsAsync(string? preferredPresetId = null, bool updateStatusOnSuccess = false)
     {
         if (_serverClient.Connection is null)
         {
-            _onlinePresetSummaries = new List<AssortmentPresetSummary>();
-            RenderOnlinePresetOptions(preferredPresetId);
+            _centralPresetSummaries = new List<AssortmentPresetSummary>();
+            RenderCentralPresetOptions(preferredPresetId);
             return;
         }
 
         try
         {
             var summaries = await _serverClient.GetPresetsAsync();
-            _onlinePresetSummaries = summaries
+            _centralPresetSummaries = summaries
                 .Select(value => new AssortmentPresetSummary(value.Id, value.Name, value.IsActive, value.ItemCount))
                 .ToList();
-            RenderOnlinePresetOptions(preferredPresetId);
+            RenderCentralPresetOptions(preferredPresetId);
             if (updateStatusOnSuccess)
             {
-                StatusText.Text = Lf("status.online_presets_loaded", _onlinePresetSummaries.Count);
+                StatusText.Text = Lf("status.central_presets_loaded", _centralPresetSummaries.Count);
             }
         }
         catch (Exception exception)
         {
-            _onlinePresetSummaries = new List<AssortmentPresetSummary>();
-            RenderOnlinePresetOptions(preferredPresetId);
-            StatusText.Text = Lf("status.online_presets_load_failed", exception.Message);
+            _centralPresetSummaries = new List<AssortmentPresetSummary>();
+            RenderCentralPresetOptions(preferredPresetId);
+            StatusText.Text = Lf("status.central_presets_load_failed", exception.Message);
         }
     }
 
-    private void RenderOnlinePresetOptions(string? preferredPresetId = null)
+    private void RenderCentralPresetOptions(string? preferredPresetId = null)
     {
-        if (_onlinePresetSummaries.Count == 0)
+        if (_centralPresetSummaries.Count == 0)
         {
-            OnlinePresetComboBox.ItemsSource = Array.Empty<UiOption<string>>();
-            OnlinePresetComboBox.SelectedValue = null;
+            CentralPresetComboBox.ItemsSource = Array.Empty<UiOption<string>>();
+            CentralPresetComboBox.SelectedValue = null;
             return;
         }
 
         var normalizedPreferred = string.IsNullOrWhiteSpace(preferredPresetId)
-            ? _onlinePresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? _onlinePresetSummaries[0].Id
+            ? _centralPresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? _centralPresetSummaries[0].Id
             : AssortmentPresetStore.NormalizePresetId(preferredPresetId);
 
-        var options = _onlinePresetSummaries
-            .Select(summary => new UiOption<string>(summary.Id, BuildOnlinePresetOptionLabel(summary)))
+        var options = _centralPresetSummaries
+            .Select(summary => new UiOption<string>(summary.Id, BuildCentralPresetOptionLabel(summary)))
             .ToArray();
 
-        OnlinePresetComboBox.ItemsSource = options;
-        OnlinePresetComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
+        CentralPresetComboBox.ItemsSource = options;
+        CentralPresetComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
             ? normalizedPreferred
-            : (_onlinePresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? options[0].Value);
+            : (_centralPresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? options[0].Value);
     }
 
-    private string BuildOnlinePresetOptionLabel(AssortmentPresetSummary summary)
+    private string BuildCentralPresetOptionLabel(AssortmentPresetSummary summary)
     {
         return summary.IsActive
-            ? Lf("preset.option_online_active_format", summary.Name, summary.ItemCount)
-            : Lf("preset.option_online_format", summary.Name, summary.ItemCount);
+            ? Lf("preset.option_central_active_format", summary.Name, summary.ItemCount)
+            : Lf("preset.option_central_format", summary.Name, summary.ItemCount);
     }
 
     private string? ResolveSelectedPresetId()
@@ -3126,7 +3190,7 @@ public partial class MainWindow : Window
         RefreshAuthUi(loadAccounts: false);
         UpdateRegisterAdvertisementUi();
         RefreshPresetControls(_activePresetId);
-        RenderOnlinePresetOptions(ResolveSelectedOnlinePresetId());
+        RenderCentralPresetOptions(ResolveSelectedCentralPresetId());
         RenderCategoryButtons();
         RefreshEditorList();
         RenderProductButtons();

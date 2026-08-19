@@ -78,13 +78,13 @@
     <Error Condition="'$(CMakeVersionExitCode)' != '0'"
            Text="CMake not found. Install CMake or add the Visual Studio component 'C++ CMake tools for Windows'." />
 
-    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -G Ninja -DCMAKE_MAKE_PROGRAM=&quot;$(CMakeNinjaExe)&quot; -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=$(Configuration) -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
+    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --fresh -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -G Ninja -DCMAKE_MAKE_PROGRAM=&quot;$(CMakeNinjaExe)&quot; -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=$(Configuration) -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
     <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --target CashSlothCore --parallel 1" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' == 'true'" />
 
-    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
+    <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --fresh -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
     <Exec Command="call &quot;$(VCVarsBat)&quot; &amp;&amp; &quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --target CashSlothCore --config $(Configuration) --parallel 1" WorkingDirectory="$(RepoRoot)" Condition="'$(UseNinja)' != 'true' and '$(UseVCVars)' == 'true'" />
 
-    <Exec Command="&quot;$(CMakeExe)&quot; -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
+    <Exec Command="&quot;$(CMakeExe)&quot; --fresh -S . -B &quot;$(CashSlothCoreBuildDir)&quot; -DBUILD_TESTING=OFF" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
     <Exec Command="&quot;$(CMakeExe)&quot; --build &quot;$(CashSlothCoreBuildDir)&quot; --target CashSlothCore --config $(Configuration) --parallel 1" WorkingDirectory="$(RepoRoot)" Condition="'$(UseVCVars)' != 'true'" />
   </Target>
 

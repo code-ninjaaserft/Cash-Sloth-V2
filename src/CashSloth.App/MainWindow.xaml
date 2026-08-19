@@ -128,33 +128,34 @@
                     CornerRadius="4"
                     Padding="8">
               <StackPanel>
-                <TextBlock Text="Online presets" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBlock Text="Central presets" FontWeight="SemiBold" Margin="0,0,0,6" />
 
-                <TextBlock Text="Preset server URL" Margin="0,2,0,2" />
-                <TextBox x:Name="OnlinePresetUrlTextBox"
+                <TextBlock Text="Central server URL" Margin="0,2,0,2" />
+                <TextBox x:Name="CentralServerUrlTextBox"
                          Height="34"
+                         IsReadOnly="True"
                          VerticalContentAlignment="Center"
-                         ToolTip="Preset server base URL (https://...)" />
+                         ToolTip="Pinned central server URL" />
 
                 <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="RefreshOnlinePresetListButton" Content="Load online presets" Width="170" Height="34" Click="OnRefreshOnlinePresetListClick" />
+                  <Button x:Name="RefreshCentralPresetListButton" Content="Load central presets" Width="170" Height="34" Click="OnRefreshCentralPresetListClick" />
                 </WrapPanel>
 
-                <TextBlock Text="Online preset list" Margin="0,8,0,2" />
-                <ComboBox x:Name="OnlinePresetComboBox"
+                <TextBlock Text="Central preset list" Margin="0,8,0,2" />
+                <ComboBox x:Name="CentralPresetComboBox"
                           Style="{StaticResource TopBarComboBoxStyle}"
                           Height="34"
                           DisplayMemberPath="Label"
                           SelectedValuePath="Value" />
 
                 <TextBlock Text="Optional preset name" Margin="0,8,0,2" />
-                <TextBox x:Name="OnlinePresetNameTextBox"
+                <TextBox x:Name="CentralPresetNameTextBox"
                          Height="34"
                          VerticalContentAlignment="Center"
                          ToolTip="Override preset name" />
 
                 <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="ImportOnlinePresetButton" Content="Import selected online preset" Width="210" Height="34" Click="OnImportOnlinePresetClick" />
+                  <Button x:Name="ImportCentralPresetButton" Content="Import selected central preset" Width="210" Height="34" Click="OnImportCentralPresetClick" />
                   <Button x:Name="UploadPresetButton" Content="Upload active preset" Width="170" Height="34" Margin="6,0,0,0" Click="OnUploadPresetClick" />
                   <CheckBox x:Name="SetImportedPresetActiveCheckBox"
                             Content="Set active"
@@ -163,7 +164,7 @@
                             IsChecked="False" />
                 </WrapPanel>
 
-                <TextBlock Text="Load list from server and import by selection."
+                <TextBlock Text="Presets are loaded through the authenticated central server session."
                            Margin="0,8,0,0"
                            FontSize="12"
                            Opacity="0.8" />
@@ -204,7 +205,7 @@
                     <TextBox x:Name="DeviceNameTextBox" Height="34" VerticalContentAlignment="Center" />
                     <TextBlock Text="10-character pairing code" Margin="0,8,0,2" />
                     <TextBox x:Name="DevicePairingCodeTextBox" Height="34" MaxLength="14" VerticalContentAlignment="Center" />
-                    <Button Content="Pair this device" Height="34" Margin="0,8,0,0" Click="OnPairDeviceClick" />
+                    <Button x:Name="PairDeviceButton" Content="Pair this device" Height="34" Margin="0,8,0,0" Click="OnPairDeviceClick" />
                     <TextBlock x:Name="ServerConnectionStatusTextBlock" Text="Offline / not configured" TextWrapping="Wrap" Margin="0,6,0,0" />
                   </StackPanel>
                 </Border>
@@ -232,14 +233,6 @@
                   <PasswordBox x:Name="NewPasswordChangeBox" Width="150" Height="34" Margin="6,0,0,0" />
                   <Button x:Name="ChangePasswordButton" Content="Change" Width="90" Height="34" Margin="6,0,0,0" Click="OnChangePasswordClick" />
                 </WrapPanel>
-                <Button x:Name="LocalAdminRecoveryButton"
-                        Content="Local admin recovery removed"
-                        Width="170"
-                        Height="34"
-                        Margin="0,8,0,0"
-                        Click="OnLocalAdminRecoveryClick"
-                        Visibility="Collapsed" />
-
                 <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="4"
@@ -296,11 +289,6 @@
                 <TextBox x:Name="AccountUsernameTextBox"
                          Height="34"
                          VerticalContentAlignment="Center" />
-
-                <TextBlock Text="Password (set/change)" Margin="0,8,0,2" />
-                <PasswordBox x:Name="AccountPasswordBox"
-                             Height="34"
-                             VerticalContentAlignment="Center" />
 
                 <TextBlock Text="Role" Margin="0,8,0,2" />
                 <ComboBox x:Name="AccountRoleComboBox"
