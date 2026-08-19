@@ -18,12 +18,30 @@ public sealed class AccountPolicyTests
         var weak = await Assert.ThrowsAsync<ApiProblemException>(() =>
             accounts.CreateFirstAdminAsync("admin", "admin"));
         Assert.Equal("setup_failed", weak.Code);
+        Assert.Contains(weak.FieldErrors!.SelectMany(value => value.Value),
+            message => message.Contains("mindestens 12 Zeichen", StringComparison.Ordinal));
+        Assert.Empty(await accounts.ListAccountsAsync());
 
         await accounts.CreateFirstAdminAsync("owner", "Very-Strong-Password-42!");
         var listed = await accounts.ListAccountsAsync();
         var owner = Assert.Single(listed);
         Assert.Equal(CashSlothRoles.Admin, owner.Role);
         Assert.True(owner.IsApproved);
+    }
+
+    [Fact]
+    public async Task FirstAdmin_RejectsInvalidUsername_WithActionableMessage()
+    {
+        await using var context = await TestServerContext.CreateAsync();
+        using var scope = context.CreateScope();
+        var accounts = scope.ServiceProvider.GetRequiredService<AccountService>();
+
+        var invalid = await Assert.ThrowsAsync<ApiProblemException>(() =>
+            accounts.CreateFirstAdminAsync("x", "Very-Strong-Password-42!"));
+
+        Assert.Equal("invalid_username", invalid.Code);
+        Assert.Contains("3 bis 50", invalid.Message, StringComparison.Ordinal);
+        Assert.Empty(await accounts.ListAccountsAsync());
     }
 
     [Fact]

@@ -19,11 +19,7 @@ public sealed class AccountService(
     {
         var payloadHash = DeviceProofService.BuildPayloadHash(request.Username, request.Password);
         var device = await deviceProof.VerifyAndConsumeAsync(request.Proof, "register", payloadHash, cancellationToken);
-        var username = request.Username.Trim();
-        if (username.Length is < 3 or > 50)
-        {
-            throw new ApiProblemException(400, "invalid_username", "Benutzername muss 3 bis 50 Zeichen lang sein.");
-        }
+        var username = NormalizeUsername(request.Username);
 
         var user = new ServerUser
         {
@@ -163,6 +159,8 @@ public sealed class AccountService(
 
     public async Task CreateFirstAdminAsync(string username, string password, CancellationToken cancellationToken = default)
     {
+        username = NormalizeUsername(username);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         if (await db.Users.AnyAsync(cancellationToken))
         {
             throw new InvalidOperationException("Die Ersteinrichtung ist bereits abgeschlossen.");
@@ -171,7 +169,7 @@ public sealed class AccountService(
         var user = new ServerUser
         {
             Id = Guid.NewGuid().ToString("N"),
-            UserName = username.Trim(),
+            UserName = username,
             IsApproved = true,
             IsActive = true,
             CreatedAtUtc = DateTimeOffset.UtcNow,
@@ -183,6 +181,7 @@ public sealed class AccountService(
         var roleResult = await userManager.AddToRoleAsync(user, CashSlothRoles.Admin);
         ThrowIfIdentityFailed(roleResult, "setup_failed", "Administratorrolle konnte nicht gesetzt werden.");
         await audit.WriteAsync("local-console", "account.first-admin", "account", user.Id, user.UserName, cancellationToken: cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<AdminAccountResponse>> ListAccountsAsync(CancellationToken cancellationToken = default)
@@ -348,9 +347,31 @@ public sealed class AccountService(
         }
         var fields = result.Errors
             .GroupBy(value => value.Code)
-            .ToDictionary(group => group.Key, group => group.Select(value => value.Description).ToArray());
+            .ToDictionary(group => group.Key, group => group.Select(DescribeIdentityError).ToArray());
         throw new ApiProblemException(400, code, message, fields);
     }
+
+    private static string NormalizeUsername(string username)
+    {
+        var normalized = username.Trim();
+        if (normalized.Length is < 3 or > 50)
+        {
+            throw new ApiProblemException(400, "invalid_username", "Benutzername muss 3 bis 50 Zeichen lang sein.");
+        }
+        return normalized;
+    }
+
+    private static string DescribeIdentityError(IdentityError error) => error.Code switch
+    {
+        "PasswordTooShort" => "Das Passwort muss mindestens 12 Zeichen lang sein.",
+        "PasswordRequiresNonAlphanumeric" => "Das Passwort muss mindestens ein Sonderzeichen enthalten.",
+        "PasswordRequiresDigit" => "Das Passwort muss mindestens eine Zahl enthalten.",
+        "PasswordRequiresLower" => "Das Passwort muss mindestens einen Kleinbuchstaben enthalten.",
+        "PasswordRequiresUpper" => "Das Passwort muss mindestens einen Grossbuchstaben enthalten.",
+        "InvalidUserName" => "Der Benutzername darf nur Buchstaben, Zahlen, Punkt, Bindestrich und Unterstrich enthalten.",
+        "DuplicateUserName" => "Dieser Benutzername ist bereits vergeben.",
+        _ => error.Description
+    };
 
     private static string CreateTemporaryPassword()
     {

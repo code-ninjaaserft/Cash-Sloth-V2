@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using CashSloth.Contracts;
+using CashSloth.Server.Api;
 using CashSloth.Server.Data;
 using CashSloth.Server.Infrastructure;
 using CashSloth.Server.Security;
@@ -381,6 +382,7 @@ public partial class MainWindow : Window
         LastErrorText.Text = status.LastError ?? "–";
         StartButton.IsEnabled = !_busy && !_coordinator.IsRunning;
         StopButton.IsEnabled = !_busy && _coordinator.IsRunning;
+        FirstSetupGroup.IsEnabled = !_busy;
         _trayIcon.Text = $"CashSloth Server – {OverallStatusText.Text}";
     }
 
@@ -422,8 +424,23 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowError(Exception exception) =>
-        System.Windows.MessageBox.Show(this, exception.Message, "CashSloth Server", MessageBoxButton.OK, MessageBoxImage.Error);
+    private void ShowError(Exception exception)
+    {
+        var message = exception.Message;
+        if (exception is ApiProblemException { FieldErrors.Count: > 0 } problem)
+        {
+            var details = problem.FieldErrors
+                .SelectMany(entry => entry.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (details.Length > 0)
+            {
+                message = $"{problem.Message}\n\n• {string.Join("\n• ", details)}";
+            }
+        }
+        System.Windows.MessageBox.Show(this, message, "CashSloth Server", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
 
     private string? AskPassphrase(string title, string instruction)
     {
