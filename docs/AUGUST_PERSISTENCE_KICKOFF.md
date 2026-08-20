@@ -1,6 +1,6 @@
 # August Persistence Kickoff
 
-_Last updated: 2026-03-08_
+_Last reviewed: 2026-08-19 (historical kickoff record)_
 
 This document captures the first implementation steps toward the August 2026 milestone (`Z'aemme aesse`) for persistence and migration safety.
 
@@ -39,8 +39,7 @@ This keeps current behavior stable while starting migration work.
 
 ### 3) Build dependency for SQLite provider
 
-`CashSloth.App.csproj` now includes:
-- `Microsoft.Data.Sqlite` (8.0.x line) for .NET 8 compatibility.
+`CashSloth.App.csproj` includes `Microsoft.Data.Sqlite`. The repository has since moved to .NET 10 and the current package version is defined in the project file.
 
 ### 4) Automated migration and fallback tests
 
@@ -56,6 +55,8 @@ This keeps current behavior stable while starting migration work.
 - **Core (C++)** owns runtime cart/payment state.
 - **WPF app layer** owns assortment preset persistence storage strategy.
 - **Assortment store contract** remains `CatalogItemEditor + extraCategories` for now.
+
+Central server v1 now owns authenticated central presets, but the WPF app still keeps this local assortment store as its runtime/cache and local-preset boundary. Account data is not stored here.
 
 ## Migration strategy baseline (next steps)
 

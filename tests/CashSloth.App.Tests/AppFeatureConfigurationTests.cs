@@ -24,7 +24,7 @@ public sealed class AppFeatureConfigurationTests
             Assert.True(flags.ShowOnboarding);
             Assert.True(flags.ShowStartupAnimation);
             Assert.False(flags.KeepLaptopAwake);
-            Assert.False(flags.KioskMode);
+            Assert.False(flags.AllowKioskMode);
             Assert.False(flags.RequireKioskExitPassword);
             Assert.False(flags.LockWindowsOnExit);
         }
@@ -44,15 +44,15 @@ public sealed class AppFeatureConfigurationTests
             File.WriteAllText(path, """
                 {
                   "profile": "zamme-aesse",
-                  "show_presets": false,
-                  "show_accounts": false,
+                  "show_presets": true,
+                  "show_accounts": true,
                   "show_event": false,
                   "show_customer_display": false,
                   "show_catalog_editing": true,
                   "show_onboarding": false,
                   "show_startup_animation": true,
                   "keep_laptop_awake": true,
-                  "kiosk_mode": true,
+                  "allow_kiosk_mode": true,
                   "require_kiosk_exit_password": true,
                   "lock_windows_on_exit": true
                 }
@@ -61,15 +61,15 @@ public sealed class AppFeatureConfigurationTests
             var flags = AppFeatureConfiguration.LoadFromFile(path, AppFeatureFlags.Full);
 
             Assert.Equal("zamme-aesse", flags.Profile);
-            Assert.False(flags.ShowPresets);
-            Assert.False(flags.ShowAccounts);
+            Assert.True(flags.ShowPresets);
+            Assert.True(flags.ShowAccounts);
             Assert.False(flags.ShowEvent);
             Assert.False(flags.ShowCustomerDisplay);
             Assert.True(flags.ShowCatalogEditing);
             Assert.False(flags.ShowOnboarding);
             Assert.True(flags.ShowStartupAnimation);
             Assert.True(flags.KeepLaptopAwake);
-            Assert.True(flags.KioskMode);
+            Assert.True(flags.AllowKioskMode);
             Assert.True(flags.RequireKioskExitPassword);
             Assert.True(flags.LockWindowsOnExit);
         }
@@ -94,6 +94,30 @@ public sealed class AppFeatureConfigurationTests
         var path = AppFeatureConfiguration.ResolveProfilePath("full");
 
         Assert.Null(path);
+    }
+
+    [Fact]
+    public void LegacyKioskModeFlagStillEnablesTheSettingCapability()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var path = Path.Combine(tempDir, "CashSloth.Features.json");
+            File.WriteAllText(path, """
+                {
+                  "profile": "zamme-aesse",
+                  "kiosk_mode": true
+                }
+                """);
+
+            var flags = AppFeatureConfiguration.LoadFromFile(path, AppFeatureFlags.Full);
+
+            Assert.True(flags.AllowKioskMode);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
     }
 
     private static string CreateTempDir()

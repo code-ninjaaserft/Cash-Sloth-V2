@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Media;
+using CashSloth.Contracts;
 using Microsoft.Win32;
 
 namespace CashSloth.App;
@@ -36,12 +37,14 @@ internal sealed record AppSettings(
     UiCurrency Currency,
     UiThemeMode Theme,
     bool HasSeenOnboarding,
+    bool KioskModeEnabled,
     string KioskExitPasswordHash)
 {
     internal static AppSettings Default { get; } = new(
         UiLanguage.EnglishUk,
         UiCurrency.Chf,
         UiThemeMode.System,
+        false,
         false,
         string.Empty);
 }
@@ -56,7 +59,7 @@ internal sealed record UiOption<T>(T Value, string Label)
 
 internal sealed class AppSettingsStore
 {
-    private const int CurrentSchemaVersion = 3;
+    private const int CurrentSchemaVersion = 4;
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -65,9 +68,16 @@ internal sealed class AppSettingsStore
     };
 
     internal AppSettingsStore()
+        : this(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CashSloth",
+            "ui.settings.json"))
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        FilePath = Path.Combine(localAppData, "CashSloth", "ui.settings.json");
+    }
+
+    internal AppSettingsStore(string filePath)
+    {
+        FilePath = filePath;
     }
 
     internal string FilePath { get; }
@@ -108,6 +118,7 @@ internal sealed class AppSettingsStore
                 currency,
                 theme,
                 document.HasSeenOnboarding,
+                document.KioskModeEnabled,
                 document.KioskExitPasswordHash?.Trim() ?? string.Empty);
         }
         catch
@@ -124,6 +135,7 @@ internal sealed class AppSettingsStore
             settings.Currency.ToString(),
             settings.Theme.ToString(),
             settings.HasSeenOnboarding,
+            settings.KioskModeEnabled,
             settings.KioskExitPasswordHash);
 
         try
@@ -224,6 +236,7 @@ internal static class UiLocalizer
         ["settings.language"] = new("Language", "Sprache", "Langue", "Lingua"),
         ["settings.currency"] = new("Currency", "Waehrung", "Monnaie", "Valuta"),
         ["settings.theme"] = new("UI Color", "UI-Farbe", "Couleur UI", "Colur UI"),
+        ["settings.kiosk_mode"] = new("Kiosk mode", "Kioskmodus", "Mode kiosque", "Modus kiosk"),
         ["button.show_tutorial"] = new("Show tutorial", "Tutorial anzeigen", "Afficher tutoriel", "Mussar tutorial"),
         ["button.exit_kiosk"] = new("Exit kiosk", "Kiosk beenden", "Quitter kiosque", "Terminar kiosk"),
         ["button.unlock_exit"] = new("Unlock exit", "Beenden freigeben", "Debloquer sortie", "Lubir sortida"),
@@ -254,7 +267,7 @@ internal static class UiLocalizer
         ["onboarding.event_title"] = new("3. Event mode", "3. Event-Modus", "3. Mode evenement", "3. Modus event"),
         ["onboarding.event_body"] = new("Name the event and register. Hosts can scan for client registers; clients can make themselves visible on the network.", "Event und Kasse benennen. Hosts koennen Client-Kassen suchen; Clients koennen sich im Netzwerk sichtbar machen.", "Nommer l'evenement et la caisse. Les hotes cherchent des caisses clientes; les clients peuvent etre visibles sur le reseau.", "Numnar event e cassa. Hosts anflan cassas client; clients san daventar veseivels el network."),
         ["onboarding.accounts_title"] = new("4. Accounts and presets", "4. Accounts und Presets", "4. Comptes et presets", "4. Accounts e presets"),
-        ["onboarding.accounts_body"] = new("Anyone can create a normal account. Admins manage roles and presets. The tutorial can be opened again from Settings.", "Alle koennen einen normalen Account erstellen. Admins verwalten Rollen und Presets. Das Tutorial kann in Einstellungen erneut geoeffnet werden.", "Tout le monde peut creer un compte normal. Les admins gerent les roles et presets. Le tutoriel se rouvre dans Parametres.", "Mintgin sa crear in account normal. Admins administreschan rollas e presets. Il tutorial ei en Settings puspei avierts."),
+        ["onboarding.accounts_body"] = new("Paired devices use central accounts and presets. Admins approve accounts and manage roles. The tutorial can be opened again from Settings.", "Gekoppelte Geraete verwenden zentrale Accounts und Presets. Admins geben Accounts frei und verwalten Rollen. Das Tutorial kann in Einstellungen erneut geoeffnet werden.", "Les appareils couples utilisent les comptes et presets centraux. Les admins approuvent les comptes et gerent les roles. Le tutoriel se rouvre dans Parametres.", "Geraets colligiai drovan accounts e presets centrals. Admins lubeschan accounts ed administreschan rollas. Il tutorial ei en Settings puspei avierts."),
         ["onboarding.localization_note"] = new("Changing language, currency, or theme affects fixed app UI only. Product names, categories, usernames, and passwords stay as entered.", "Sprache, Waehrung und Theme betreffen nur fixe App-Oberflaechen. Produktnamen, Kategorien, Usernamen und Passwoerter bleiben wie eingegeben.", "Langue, monnaie et theme changent seulement l'interface fixe. Produits, categories, utilisateurs et mots de passe restent saisis.", "Lingua, valuta e theme midan mo la UI fixa. Products, categorias, usernames e passwords restan sco endatai."),
         ["button.start_using_cashsloth"] = new("Start using CashSloth", "CashSloth starten", "Commencer avec CashSloth", "Cumenzer cun CashSloth"),
         ["account.session"] = new("Session", "Sitzung", "Session", "Sessiun"),
@@ -262,21 +275,20 @@ internal static class UiLocalizer
         ["account.username"] = new("Username", "Benutzername", "Nom utilisateur", "Username"),
         ["account.password"] = new("Password", "Passwort", "Mot de passe", "Password"),
         ["account.confirm_password"] = new("Confirm password", "Passwort bestaetigen", "Confirmer mot de passe", "Confirmar password"),
-        ["account.password_set_change"] = new("Password (set/change)", "Passwort (setzen/aendern)", "Mot de passe (definir/modifier)", "Password (metter/midar)"),
         ["account.create_account"] = new("Create account", "Account erstellen", "Creer compte", "Crear account"),
         ["account.management_admin"] = new("Account management (Admin)", "Account-Verwaltung (Admin)", "Gestion comptes (Admin)", "Administraziun accounts (Admin)"),
         ["button.login"] = new("Login", "Anmelden", "Connexion", "Login"),
         ["button.logout"] = new("Logout", "Abmelden", "Deconnexion", "Logout"),
-        ["button.local_admin_recovery"] = new("Local admin recovery", "Lokale Admin-Wiederherstellung", "Recuperation admin locale", "Recuperaziun admin locala"),
         ["button.create_normal_user"] = new("Create normal user", "Normalen User erstellen", "Creer utilisateur normal", "Crear user normal"),
         ["button.refresh_accounts"] = new("Refresh accounts", "Accounts aktualisieren", "Actualiser comptes", "Actualisar accounts"),
         ["button.save_account"] = new("Save account", "Account speichern", "Enregistrer compte", "Salvar account"),
-        ["button.delete_account"] = new("Delete account", "Account loeschen", "Supprimer compte", "Stizzar account"),
+        ["button.reset_password"] = new("Reset password", "Passwort zuruecksetzen", "Reinitialiser le mot de passe", "Resetar password"),
         ["label.role"] = new("Role", "Rolle", "Role", "Rolla"),
         ["role.user"] = new("User", "User", "Utilisateur", "User"),
         ["role.creator"] = new("Creator", "Ersteller", "Createur", "Creatur"),
         ["role.admin"] = new("Admin", "Admin", "Admin", "Admin"),
         ["checkbox.enabled"] = new("Enabled", "Aktiviert", "Active", "Activau"),
+        ["checkbox.approved"] = new("Approved", "Freigegeben", "Approuve", "Lubiu"),
         ["event.context"] = new("Event context", "Event-Kontext", "Contexte evenement", "Context event"),
         ["event.name"] = new("Event name", "Eventname", "Nom evenement", "Num event"),
         ["event.register"] = new("Register", "Kasse", "Caisse", "Cassa"),
@@ -314,31 +326,26 @@ internal static class UiLocalizer
         ["button.use_current_event"] = new("Use current event", "Aktuelles Event verwenden", "Utiliser evenement actuel", "Usar event actual"),
         ["checkbox.include_showcase"] = new("Include showcase", "Showcase einbeziehen", "Inclure showcase", "Includer showcase"),
         ["preset.local_presets"] = new("Local presets", "Lokale Presets", "Presets locaux", "Presets locals"),
-        ["preset.online_presets"] = new("Online presets", "Online-Presets", "Presets en ligne", "Presets online"),
-        ["preset.online_import"] = new("Online preset import", "Online-Preset-Import", "Import preset en ligne", "Import presets online"),
+        ["preset.central_presets"] = new("Central presets", "Zentrale Presets", "Presets centraux", "Presets centrals"),
         ["preset.save_current_as"] = new("Save current as", "Aktuelles speichern als", "Enregistrer actuel comme", "Salvar actual sco"),
-        ["preset.url"] = new("Preset URL", "Preset-URL", "URL preset", "URL preset"),
-        ["preset.server_url"] = new("Preset server URL", "Preset-Server-URL", "URL du serveur preset", "URL server preset"),
-        ["preset.online_list"] = new("Online preset list", "Online-Preset-Liste", "Liste des presets en ligne", "Gliesta presets online"),
+        ["preset.server_url"] = new("Central server URL", "Central-Server-URL", "URL du serveur central", "URL server central"),
+        ["preset.central_list"] = new("Central preset list", "Zentrale Preset-Liste", "Liste des presets centraux", "Gliesta presets centrals"),
         ["preset.optional_name"] = new("Optional preset name", "Optionaler Preset-Name", "Nom de preset optionnel", "Num preset optional"),
         ["button.switch_preset"] = new("Switch preset", "Preset wechseln", "Changer preset", "Midar preset"),
         ["button.refresh_presets"] = new("Refresh", "Aktualisieren", "Actualiser", "Actualisar"),
-        ["button.load_online_presets"] = new("Load online presets", "Online-Presets laden", "Charger les presets en ligne", "Cargar presets online"),
+        ["button.load_central_presets"] = new("Load central presets", "Zentrale Presets laden", "Charger les presets centraux", "Cargar presets centrals"),
         ["button.delete_preset"] = new("Delete preset", "Preset loeschen", "Supprimer preset", "Stizzar preset"),
         ["button.save_current_preset"] = new("Save current preset", "Aktuelles Preset speichern", "Enregistrer preset actuel", "Salvar preset actual"),
-        ["button.import_online_preset"] = new("Import online preset", "Online-Preset importieren", "Importer preset en ligne", "Importar preset online"),
-        ["button.import_selected_online_preset"] = new("Import selected online preset", "Ausgewaehltes Online-Preset importieren", "Importer le preset en ligne selectionne", "Importar preset online selecziunau"),
+        ["button.import_selected_central_preset"] = new("Import selected central preset", "Ausgewaehltes zentrales Preset importieren", "Importer le preset central selectionne", "Importar preset central selecziunau"),
         ["checkbox.set_active"] = new("Set active", "Aktiv setzen", "Definir actif", "Definir activ"),
-        ["hint.online_preset_formats"] = new("Supports preset JSON and store JSON with presets.", "Unterstuetzt Preset-JSON und Store-JSON mit Presets.", "Prend en charge le JSON preset et le JSON store avec presets.", "Sustegn preset JSON e store JSON cun presets."),
-        ["hint.online_preset_server_usage"] = new("Load list from server and import by selection.", "Liste vom Server laden und per Auswahl importieren.", "Charger la liste du serveur et importer par selection.", "Cargar gliesta dal server ed importar per selecziun."),
+        ["hint.central_preset_server_usage"] = new("Presets are loaded through the authenticated central server session.", "Presets werden ueber die authentifizierte Central-Server-Sitzung geladen.", "Les presets sont charges via la session authentifiee du serveur central.", "Presets vegnan cargai tras la sessiun autentificada dil server central."),
         ["tooltip.preset_name_example"] = new("Preset name (e.g. Summer Menu)", "Preset-Name (z.B. Sommerkarte)", "Nom du preset (ex. Menu ete)", "Num preset (p.ex. menu stad)"),
-        ["tooltip.online_preset_url"] = new("Preset JSON URL (https://...)", "Preset-JSON-URL (https://...)", "URL JSON preset (https://...)", "URL preset JSON (https://...)"),
-        ["tooltip.online_preset_server_url"] = new("Preset server base URL (https://...)", "Basis-URL des Preset-Servers (https://...)", "URL de base du serveur preset (https://...)", "URL da basa dal server preset (https://...)"),
-        ["tooltip.online_preset_name"] = new("Override preset name", "Preset-Name ueberschreiben", "Remplacer le nom du preset", "Surpassar num preset"),
+        ["tooltip.central_server_url"] = new("Pinned central server URL", "Angeheftete Central-Server-URL", "URL epinglee du serveur central", "URL fixada dil server central"),
+        ["tooltip.central_preset_name"] = new("Override preset name", "Preset-Name ueberschreiben", "Remplacer le nom du preset", "Surpassar num preset"),
         ["preset.option_format"] = new("{0} ({1} items)", "{0} ({1} Artikel)", "{0} ({1} articles)", "{0} ({1} artitgels)"),
         ["preset.option_active_format"] = new("{0} ({1} items) - active", "{0} ({1} Artikel) - aktiv", "{0} ({1} articles) - actif", "{0} ({1} artitgels) - activ"),
-        ["preset.option_online_format"] = new("{0} ({1} items)", "{0} ({1} Artikel)", "{0} ({1} articles)", "{0} ({1} artitgels)"),
-        ["preset.option_online_active_format"] = new("{0} ({1} items) - active online", "{0} ({1} Artikel) - online aktiv", "{0} ({1} articles) - actif en ligne", "{0} ({1} artitgels) - online activ"),
+        ["preset.option_central_format"] = new("{0} ({1} items)", "{0} ({1} Artikel)", "{0} ({1} articles)", "{0} ({1} artitgels)"),
+        ["preset.option_central_active_format"] = new("{0} ({1} items) - active on server", "{0} ({1} Artikel) - auf Server aktiv", "{0} ({1} articles) - actif sur le serveur", "{0} ({1} artitgels) - activ sil server"),
         ["theme.system"] = new("System", "System", "Systeme", "Sistem"),
         ["theme.light"] = new("Light", "Hell", "Clair", "Cler"),
         ["theme.dark"] = new("Dark", "Dunkel", "Sombre", "Stgir"),
@@ -436,16 +443,15 @@ internal static class UiLocalizer
         ["status.preset_save_failed"] = new("Preset could not be saved: {0}", "Preset konnte nicht gespeichert werden: {0}", "Le preset n'a pas pu etre enregistre: {0}", "Preset buca savegiaus: {0}"),
         ["status.preset_delete_failed"] = new("Preset could not be deleted: {0}", "Preset konnte nicht geloescht werden: {0}", "Le preset n'a pas pu etre supprime: {0}", "Preset buca stizzaus: {0}"),
         ["status.preset_deleted"] = new("Preset '{0}' deleted.", "Preset '{0}' geloescht.", "Preset '{0}' supprime.", "Preset '{0}' stizzaus."),
-        ["status.preset_url_required"] = new("Preset URL is required.", "Preset-URL ist erforderlich.", "L'URL du preset est requise.", "URL preset ei necessaria."),
-        ["status.preset_server_url_required"] = new("Preset server URL is required.", "Preset-Server-URL ist erforderlich.", "L'URL du serveur preset est requise.", "URL dal server preset ei necessaria."),
-        ["status.online_presets_load_failed"] = new("Online presets could not be loaded: {0}", "Online-Presets konnten nicht geladen werden: {0}", "Les presets en ligne n'ont pas pu etre charges: {0}", "Presets online buca cargai: {0}"),
-        ["status.online_presets_loaded"] = new("Loaded {0} online presets.", "{0} Online-Presets geladen.", "{0} presets en ligne charges.", "{0} presets online cargai."),
-        ["status.online_preset_select_required"] = new("Select an online preset first.", "Bitte zuerst ein Online-Preset waehlen.", "Selectionnez d'abord un preset en ligne.", "Selecziunescha emprema in preset online."),
-        ["status.preset_import_failed"] = new("Online preset import failed: {0}", "Online-Preset-Import fehlgeschlagen: {0}", "Import de preset en ligne echoue: {0}", "Import preset online buca reussiu: {0}"),
-        ["status.preset_imported"] = new("Online preset '{0}' imported.", "Online-Preset '{0}' importiert.", "Preset en ligne '{0}' importe.", "Preset online '{0}' importaus."),
-        ["status.preset_imported_and_switched"] = new("Online preset '{0}' imported and activated.", "Online-Preset '{0}' importiert und aktiviert.", "Preset en ligne '{0}' importe et active.", "Preset online '{0}' importa e activaus."),
-        ["status.preset_upload_failed"] = new("Online preset upload failed: {0}", "Online-Preset-Upload fehlgeschlagen: {0}", "Upload de preset en ligne echoue: {0}", "Upload preset online buca reussiu: {0}"),
-        ["status.preset_uploaded"] = new("Online preset '{0}' uploaded.", "Online-Preset '{0}' hochgeladen.", "Preset en ligne '{0}' televerse.", "Preset online '{0}' cargaus ensi.")
+        ["status.preset_server_url_required"] = new("A central server connection is required.", "Eine Central-Server-Verbindung ist erforderlich.", "Une connexion au serveur central est requise.", "Ina connexiun cul server central ei necessaria."),
+        ["status.central_presets_load_failed"] = new("Central presets could not be loaded: {0}", "Zentrale Presets konnten nicht geladen werden: {0}", "Les presets centraux n'ont pas pu etre charges: {0}", "Presets centrals buca cargai: {0}"),
+        ["status.central_presets_loaded"] = new("Loaded {0} central presets.", "{0} zentrale Presets geladen.", "{0} presets centraux charges.", "{0} presets centrals cargai."),
+        ["status.central_preset_select_required"] = new("Select a central preset first.", "Bitte zuerst ein zentrales Preset waehlen.", "Selectionnez d'abord un preset central.", "Selecziunescha emprema in preset central."),
+        ["status.preset_import_failed"] = new("Central preset import failed: {0}", "Import des zentralen Presets fehlgeschlagen: {0}", "Import du preset central echoue: {0}", "Import preset central buca reussiu: {0}"),
+        ["status.preset_imported"] = new("Central preset '{0}' imported.", "Zentrales Preset '{0}' importiert.", "Preset central '{0}' importe.", "Preset central '{0}' importaus."),
+        ["status.preset_imported_and_switched"] = new("Central preset '{0}' imported and activated locally.", "Zentrales Preset '{0}' importiert und lokal aktiviert.", "Preset central '{0}' importe et active localement.", "Preset central '{0}' importa ed activaus localmein."),
+        ["status.preset_upload_failed"] = new("Central preset upload failed: {0}", "Upload zum Central Server fehlgeschlagen: {0}", "Envoi du preset central echoue: {0}", "Upload preset central buca reussiu: {0}"),
+        ["status.preset_uploaded"] = new("Central preset '{0}' uploaded.", "Zentrales Preset '{0}' hochgeladen.", "Preset central '{0}' televerse.", "Preset central '{0}' cargaus ensi.")
     };
 
     private static readonly IReadOnlyDictionary<string, string> LiteralLookup = BuildLiteralLookup();
@@ -541,13 +547,13 @@ internal static class UiLocalizer
         };
     }
 
-    internal static IReadOnlyList<UiOption<UserRole>> BuildRoleOptions(UiLanguage language)
+    internal static IReadOnlyList<UiOption<CashSlothRole>> BuildRoleOptions(UiLanguage language)
     {
         return new[]
         {
-            new UiOption<UserRole>(UserRole.User, Get(language, "role.user")),
-            new UiOption<UserRole>(UserRole.Creator, Get(language, "role.creator")),
-            new UiOption<UserRole>(UserRole.Admin, Get(language, "role.admin"))
+            new UiOption<CashSlothRole>(CashSlothRole.User, Get(language, "role.user")),
+            new UiOption<CashSlothRole>(CashSlothRole.Creator, Get(language, "role.creator")),
+            new UiOption<CashSlothRole>(CashSlothRole.Admin, Get(language, "role.admin"))
         };
     }
 
@@ -604,4 +610,5 @@ internal sealed record AppSettingsDocument(
     [property: JsonPropertyName("currency")] string Currency,
     [property: JsonPropertyName("theme")] string Theme,
     [property: JsonPropertyName("has_seen_onboarding")] bool HasSeenOnboarding = false,
+    [property: JsonPropertyName("kiosk_mode_enabled")] bool KioskModeEnabled = false,
     [property: JsonPropertyName("kiosk_exit_password_hash")] string KioskExitPasswordHash = "");

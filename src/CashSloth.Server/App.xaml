@@ -1,0 +1,22 @@
+<Application x:Class="CashSloth.Server.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <SolidColorBrush x:Key="WindowBackground" Color="#FFF4F6F8" />
+        <SolidColorBrush x:Key="PanelBackground" Color="White" />
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="Margin" Value="3" />
+            <Setter Property="MinWidth" Value="88" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="7" />
+            <Setter Property="Margin" Value="3" />
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Padding" Value="7" />
+            <Setter Property="Margin" Value="3" />
+        </Style>
+    </Application.Resources>
+</Application>

@@ -72,9 +72,11 @@ CashSloth Zamme Aesse
 Start: CSV2.exe
 
 This package is intentionally feature-gated for the Zamme Aesse flow.
-Visible: Shop/catalog main page, History, Settings.
-Hidden by CashSloth.Features.json: Presets, Accounts, Event networking, Customer Display, Onboarding.
-Enabled by CashSloth.Features.json: keep laptop awake, soft kiosk fullscreen, password-gated exit, Windows lock on exit.
+Visible: Shop/catalog main page, Settings, Presets, Accounts, History.
+Hidden by CashSloth.Features.json: Event networking, Customer Display, Onboarding.
+Server v1: import server trust and pair/sign in under Accounts; central assortments are available under Presets.
+Available through Settings: soft kiosk fullscreen, keep laptop awake, password-gated exit, Windows lock on exit.
+Kiosk mode is disabled by default for easier setup and debugging.
 
 First-run cart catalog: Stand 11, Getränkestand «El Tony & mehr».
 The Zamme Aesse profile stores its assortment separately from the full CashSloth profile.

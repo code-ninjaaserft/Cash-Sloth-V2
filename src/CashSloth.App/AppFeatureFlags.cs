@@ -14,7 +14,7 @@ internal sealed record AppFeatureFlags(
     bool ShowOnboarding,
     bool ShowStartupAnimation,
     bool KeepLaptopAwake,
-    bool KioskMode,
+    bool AllowKioskMode,
     bool RequireKioskExitPassword,
     bool LockWindowsOnExit)
 {
@@ -28,7 +28,7 @@ internal sealed record AppFeatureFlags(
         ShowOnboarding: true,
         ShowStartupAnimation: true,
         KeepLaptopAwake: false,
-        KioskMode: false,
+        AllowKioskMode: false,
         RequireKioskExitPassword: false,
         LockWindowsOnExit: false);
 }
@@ -120,7 +120,7 @@ internal static class AppFeatureConfiguration
                 document.ShowOnboarding ?? fallback.ShowOnboarding,
                 document.ShowStartupAnimation ?? fallback.ShowStartupAnimation,
                 document.KeepLaptopAwake ?? fallback.KeepLaptopAwake,
-                document.KioskMode ?? fallback.KioskMode,
+                document.AllowKioskMode ?? document.LegacyKioskMode ?? fallback.AllowKioskMode,
                 document.RequireKioskExitPassword ?? fallback.RequireKioskExitPassword,
                 document.LockWindowsOnExit ?? fallback.LockWindowsOnExit);
         }
@@ -147,6 +147,7 @@ internal sealed record AppFeatureFlagsDocument(
     [property: JsonPropertyName("show_onboarding")] bool? ShowOnboarding,
     [property: JsonPropertyName("show_startup_animation")] bool? ShowStartupAnimation,
     [property: JsonPropertyName("keep_laptop_awake")] bool? KeepLaptopAwake,
-    [property: JsonPropertyName("kiosk_mode")] bool? KioskMode,
+    [property: JsonPropertyName("allow_kiosk_mode")] bool? AllowKioskMode,
+    [property: JsonPropertyName("kiosk_mode")] bool? LegacyKioskMode,
     [property: JsonPropertyName("require_kiosk_exit_password")] bool? RequireKioskExitPassword,
     [property: JsonPropertyName("lock_windows_on_exit")] bool? LockWindowsOnExit);
