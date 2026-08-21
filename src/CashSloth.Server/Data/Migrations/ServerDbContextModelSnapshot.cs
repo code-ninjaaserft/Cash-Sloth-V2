@@ -157,6 +157,161 @@ namespace CashSloth.Server.Data.Migrations
                     b.ToTable("ExchangeRateSnapshots");
                 });
 
+            modelBuilder.Entity("CashSloth.Server.Data.EventMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("JoinedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("KickedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastSeenAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LeftAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Nickname")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NicknameNormalized")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PendingSaleCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("SynchronisedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId", "Status");
+
+                    b.HasIndex("EventId", "NicknameNormalized")
+                        .IsUnique();
+
+                    b.HasIndex("EventId", "UserId", "DeviceId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EventMembers");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.EventSale", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ChangeCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CompletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GivenCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsShowcase")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ReceivedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SubtotalCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TipCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalCents")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId", "CompletedAtUtc");
+
+                    b.HasIndex("MemberId", "CompletedAtUtc");
+
+                    b.ToTable("EventSales");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.EventSaleLine", b =>
+                {
+                    b.Property<string>("SaleId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LineIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LineTotalCents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("UnitCents")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("SaleId", "LineIndex");
+
+                    b.ToTable("EventSaleLines");
+                });
+
             modelBuilder.Entity("CashSloth.Server.Data.LoginSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -316,6 +471,92 @@ namespace CashSloth.Server.Data.Migrations
                     b.HasKey("Key");
 
                     b.ToTable("ServerMetadata");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.ServerEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("EndedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FinalReportJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HostNickname")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HostUserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JoinCodeHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JoinMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PresetHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PresetId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PresetSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PresetVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RulesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("SalesCutoffUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostUserId", "State");
+
+                    b.HasIndex("State");
+
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("CashSloth.Server.Data.ServerUser", b =>
@@ -580,6 +821,63 @@ namespace CashSloth.Server.Data.Migrations
                     b.Navigation("Device");
                 });
 
+            modelBuilder.Entity("CashSloth.Server.Data.EventMember", b =>
+                {
+                    b.HasOne("CashSloth.Server.Data.Device", "Device")
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CashSloth.Server.Data.ServerEvent", "Event")
+                        .WithMany("Members")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CashSloth.Server.Data.ServerUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Device");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.EventSale", b =>
+                {
+                    b.HasOne("CashSloth.Server.Data.ServerEvent", "Event")
+                        .WithMany("Sales")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CashSloth.Server.Data.EventMember", "Member")
+                        .WithMany("Sales")
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.EventSaleLine", b =>
+                {
+                    b.HasOne("CashSloth.Server.Data.EventSale", "Sale")
+                        .WithMany("Lines")
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Sale");
+                });
+
             modelBuilder.Entity("CashSloth.Server.Data.LoginSession", b =>
                 {
                     b.HasOne("CashSloth.Server.Data.Device", "Device")
@@ -619,6 +917,17 @@ namespace CashSloth.Server.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Preset");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.ServerEvent", b =>
+                {
+                    b.HasOne("CashSloth.Server.Data.ServerUser", "HostUser")
+                        .WithMany()
+                        .HasForeignKey("HostUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("HostUser");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -684,6 +993,23 @@ namespace CashSloth.Server.Data.Migrations
                     b.Navigation("Categories");
 
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.EventMember", b =>
+                {
+                    b.Navigation("Sales");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.EventSale", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("CashSloth.Server.Data.ServerEvent", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Sales");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,6 +1,6 @@
 # CashSloth.Server
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21_
 
 `CashSloth.Server` is the Windows control center and central API for CSV2. The WPF application hosts ASP.NET Core/Kestrel in the same process on `127.0.0.1:5080` and starts a verified Cloudflare Tunnel child process when the operator clicks **Start**.
 
@@ -15,13 +15,23 @@ _Last updated: 2026-08-19_
 - Audit log, local snapshots, encrypted migration backup and restore
 - MAMP-style dashboard, setup, emergency administration and tray operation
 
-Sales, history, mobile orders, SignalR, TWINT and RFID remain outside V1.
+## V1.5 event scope
+
+- Creator/Admin event drafts with a versioned central preset and frozen payment/tip/showcase rules
+- Open or one-time-code publication, unique persistent event nicknames, and separate `Host`/`Participant` event roles
+- Host resume, member rename/kick, presence, leave, closing and explicit incomplete finalisation
+- Idempotent sale batches, shared event totals, member totals, item/payment breakdowns and a final report
+- SignalR change hints with authenticated HTTP polling fallback
+- Signed 12-hour event offline leases; the register queues completed sales locally until the server returns
+- Normal server stop is blocked while events are active or closing. A confirmed emergency stop is audited as `local-console`.
+
+Mobile orders, provider-backed TWINT/RFID processing and report email delivery remain outside V1.5.
 
 ## Cloudflare one-time setup
 
 1. Add or use a domain in Cloudflare.
 2. In Cloudflare Zero Trust, create a remotely managed Tunnel.
-3. Add a published application such as `api.example.ch` and route it to `http://localhost:5080`.
+3. Add the published application `api.faultir.ch` (or another configured HTTPS host) and route it to `http://localhost:5080`.
 4. Copy the tunnel token. Store it only in the server UI; CashSloth protects it with Windows DPAPI.
 5. Fetch the pinned vendor binary:
 
@@ -69,6 +79,7 @@ Authenticated endpoint groups:
 - `/api/v1/auth`
 - `/api/v1/presets`
 - `/api/v1/reference`
+- `/api/v1/events` and `/api/v1/events/hub`
 - `/api/v1/admin/accounts`, `/devices`, `/audit`, `/translations`
 
 Errors use `{ code, message, fieldErrors?, traceId }`. CORS is intentionally not enabled. Request bodies are limited to 1 MiB and pairing/auth endpoints have separate strict rate limits.
@@ -88,7 +99,7 @@ Install the Windows SDK so `makeappx.exe` and `signtool.exe` are available, then
 
 ```powershell
 .\packaging\Build-ServerMsix.ps1 `
-  -Version 1.0.0.0 `
+  -Version 1.5.0.0 `
   -Publisher 'CN=CashSloth Internal' `
   -CertificatePath 'D:\secure\cashsloth-signing.pfx' `
   -CertificatePassword (Read-Host -AsSecureString)

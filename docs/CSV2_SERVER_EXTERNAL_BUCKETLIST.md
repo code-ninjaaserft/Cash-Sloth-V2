@@ -1,6 +1,6 @@
 # CSV2 Server & External Work
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21_
 
 This document tracks central-server, multi-device, network, deployment, mobile-client, and third-party work. `CashSloth.CoreApi` is the local native ABI boundary and is not a web service.
 
@@ -17,7 +17,18 @@ This document tracks central-server, multi-device, network, deployment, mobile-c
 - Server data uses EF Core/SQLite with committed migrations, WAL, backups, and encrypted migration backup/restore.
 - Tunnel tokens and signing keys are DPAPI protected; the tunnel token is passed to `cloudflared` through the environment rather than command-line arguments.
 - The WPF POS consumes the authenticated central account, preset, and exchange-rate paths. The old `CashSloth.PresetApi` and anonymous client are retired.
+- Its Accounts and Presets workspaces now expose only the surfaces allowed by session state and the server-provided `User`/`Creator`/`Admin` role.
 - Automated tests cover account policy, pairing/challenges, cryptography, preset concurrency, reference data, backups, and the HTTP authorization matrix.
+
+## Central server V1.5 events: implemented
+
+- Events are created as drafts by Creator/Admin accounts, use immutable central-preset snapshots and freeze their rules when published.
+- Event roles are `Host` and `Participant`; every member chooses a unique event nickname. The host can rename participants, kick them permanently, close and finalise the event.
+- Open events and code-protected events are visible to paired signed-in clients. The host can resume control on another paired device.
+- Completed sales use idempotent HTTP batches and a local atomic SQLite outbox. SignalR only provides realtime change hints; polling remains the fallback.
+- A pinned ES256 offline lease permits up to twelve hours of event checkout while disconnected. Closing immediately freezes new checkout and creates a fixed cutoff.
+- Server statistics provide overall and per-member totals; host reports additionally contain item/payment breakdowns and full sale data for CSV/PNG export.
+- The old UDP/LAN event surface is no longer presented in CSV2. Mobile orders and provider payment state remain separate future work.
 
 See [CashSloth.Server README](../src/CashSloth.Server/README.md) for operation and packaging details.
 
@@ -28,10 +39,6 @@ See [CashSloth.Server README](../src/CashSloth.Server/README.md) for operation a
 - Exercise tunnel interruption, server restart, token expiry, device blocking, role changes, and client recovery on real event hardware.
 - Finish localization and UX polish in both WPF applications.
 - Add operational monitoring/alerting appropriate to the final deployment environment.
-
-## LAN register discovery: current boundary
-
-Registers can advertise and discover each other through UDP broadcast, and the host UI can save/remove visible register identities. Discovery does not synchronize orders, sales, databases, payment state, or central event totals.
 
 ## Open: mobile ordering
 
@@ -49,13 +56,10 @@ Registers can advertise and discover each other through UDP broadcast, and the h
 - Model pending/success/failed/cancelled results and synchronize them idempotently.
 - Include card/mobile tips in payment results and reporting.
 
-## Open: cross-register event data
+## Event validation still open
 
-- Choose the source of truth for events, registers, orders, sales, payments, and totals.
-- Synchronize completed sales from every participating register.
-- Define duplicate/conflict handling and behavior during server or internet outages.
-- Build event totals from shared data rather than only the local sale-history database.
-- Test repeated real-event use with multiple tills and customer phones.
+- Rehearse repeated real-event use with multiple tills, tunnel interruption, host-device takeover and incomplete finalisation.
+- Decide retention/privacy policy for the permanent server-side event history.
 
 ## Architecture decisions before v2 server scope
 

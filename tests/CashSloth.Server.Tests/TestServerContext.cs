@@ -33,6 +33,7 @@ internal sealed class TestServerContext : IAsyncDisposable
         paths.EnsureDirectories();
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSignalR();
         services.AddDataProtection();
         services.AddDbContext<ServerDbContext>(options => options.UseSqlite(
             $"Data Source={paths.DatabasePath};Mode=ReadWriteCreate;Cache=Shared;Default Timeout=5;Foreign Keys=True;Pooling=False"));
@@ -58,6 +59,7 @@ internal sealed class TestServerContext : IAsyncDisposable
         services.AddScoped<AccountService>();
         services.AddScoped<PresetService>();
         services.AddScoped<AdministrativeQueryService>();
+        services.AddScoped<EventService>();
 
         var provider = services.BuildServiceProvider();
         var context = new TestServerContext(root, provider);

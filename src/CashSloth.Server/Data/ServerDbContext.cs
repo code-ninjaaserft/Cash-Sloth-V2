@@ -18,6 +18,10 @@ public sealed class ServerDbContext(DbContextOptions<ServerDbContext> options)
     public DbSet<TranslationEntry> TranslationEntries => Set<TranslationEntry>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<ServerMetadata> ServerMetadata => Set<ServerMetadata>();
+    public DbSet<ServerEvent> Events => Set<ServerEvent>();
+    public DbSet<EventMember> EventMembers => Set<EventMember>();
+    public DbSet<EventSale> EventSales => Set<EventSale>();
+    public DbSet<EventSaleLine> EventSaleLines => Set<EventSaleLine>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -130,6 +134,78 @@ public sealed class ServerDbContext(DbContextOptions<ServerDbContext> options)
         {
             entity.HasKey(value => value.Key);
             entity.Property(value => value.Key).HasMaxLength(100);
+        });
+
+        builder.Entity<ServerEvent>(entity =>
+        {
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.Name).HasMaxLength(120);
+            entity.Property(value => value.State).HasConversion<string>().HasMaxLength(20);
+            entity.Property(value => value.HostNickname).HasMaxLength(40);
+            entity.Property(value => value.PresetId).HasMaxLength(80);
+            entity.Property(value => value.PresetHash).HasMaxLength(64);
+            entity.Property(value => value.JoinMode).HasConversion<string>().HasMaxLength(20);
+            entity.Property(value => value.JoinCodeHash).HasMaxLength(128);
+            entity.Property(value => value.Version).IsConcurrencyToken();
+            entity.HasOne(value => value.HostUser)
+                .WithMany()
+                .HasForeignKey(value => value.HostUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(value => new { value.HostUserId, value.State });
+            entity.HasIndex(value => value.State);
+        });
+
+        builder.Entity<EventMember>(entity =>
+        {
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.Role).HasConversion<string>().HasMaxLength(20);
+            entity.Property(value => value.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(value => value.Nickname).HasMaxLength(40);
+            entity.Property(value => value.NicknameNormalized).HasMaxLength(40);
+            entity.HasOne(value => value.Event)
+                .WithMany(value => value.Members)
+                .HasForeignKey(value => value.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(value => value.User)
+                .WithMany()
+                .HasForeignKey(value => value.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(value => value.Device)
+                .WithMany()
+                .HasForeignKey(value => value.DeviceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(value => new { value.EventId, value.NicknameNormalized }).IsUnique();
+            entity.HasIndex(value => new { value.EventId, value.UserId, value.DeviceId });
+            entity.HasIndex(value => new { value.DeviceId, value.Status });
+        });
+
+        builder.Entity<EventSale>(entity =>
+        {
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.Id).HasMaxLength(64);
+            entity.Property(value => value.PayloadHash).HasMaxLength(64);
+            entity.Property(value => value.PaymentMethod).HasMaxLength(40);
+            entity.HasOne(value => value.Event)
+                .WithMany(value => value.Sales)
+                .HasForeignKey(value => value.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(value => value.Member)
+                .WithMany(value => value.Sales)
+                .HasForeignKey(value => value.MemberId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(value => new { value.EventId, value.CompletedAtUtc });
+            entity.HasIndex(value => new { value.MemberId, value.CompletedAtUtc });
+        });
+
+        builder.Entity<EventSaleLine>(entity =>
+        {
+            entity.HasKey(value => new { value.SaleId, value.LineIndex });
+            entity.Property(value => value.ItemId).HasMaxLength(80);
+            entity.Property(value => value.Name).HasMaxLength(200);
+            entity.HasOne(value => value.Sale)
+                .WithMany(value => value.Lines)
+                .HasForeignKey(value => value.SaleId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -1,4 +1,5 @@
 using System.Net.Http;
+using CashSloth.Contracts;
 using CashSloth.Server.Api;
 using CashSloth.Server.Data;
 using CashSloth.Server.Services;
@@ -26,6 +27,12 @@ public sealed record ServerStatusSnapshot(
     bool WakeGuard,
     string? LastError,
     DateTimeOffset UpdatedAtUtc);
+
+public sealed class ActiveEventsPreventStopException(IReadOnlyList<string> eventNames)
+    : InvalidOperationException($"Laufende Events verhindern den normalen Server-Stopp: {string.Join(", ", eventNames)}.")
+{
+    public IReadOnlyList<string> EventNames { get; } = eventNames;
+}
 
 public sealed class ServerCoordinator : IAsyncDisposable
 {
@@ -144,7 +151,10 @@ public sealed class ServerCoordinator : IAsyncDisposable
         }
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    public Task StopAsync(CancellationToken cancellationToken = default) =>
+        StopAsync(emergencyStop: false, cancellationToken);
+
+    public async Task StopAsync(bool emergencyStop, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -153,10 +163,39 @@ public sealed class ServerCoordinator : IAsyncDisposable
             {
                 return;
             }
+            var runningEvents = await GetRunningEventNamesCoreAsync(cancellationToken);
+            if (runningEvents.Count > 0 && !emergencyStop)
+            {
+                throw new ActiveEventsPreventStopException(runningEvents);
+            }
+            if (runningEvents.Count > 0)
+            {
+                using var scope = Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<AuditService>().WriteAsync(
+                    "local-console",
+                    "server.emergency-stop",
+                    "server",
+                    detail: $"Laufende Events: {string.Join(", ", runningEvents)}",
+                    cancellationToken: cancellationToken);
+                _logs.Add("Server", $"Notfall-Stopp trotz laufender Events: {string.Join(", ", runningEvents)}.");
+            }
             SetStatus(Status with { State = ServerRunState.Stopping, UpdatedAtUtc = DateTimeOffset.UtcNow });
             await StopComponentsAsync(cancellationToken, createBackup: true);
             SetStatus(NewStatus(ServerRunState.Stopped));
             _logs.Add("Server", "Server wurde sauber gestoppt.");
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> GetRunningEventNamesAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await GetRunningEventNamesCoreAsync(cancellationToken);
         }
         finally
         {
@@ -277,7 +316,14 @@ public sealed class ServerCoordinator : IAsyncDisposable
 
         if (_app is not null)
         {
-            try { await _app.StopAsync(cancellationToken); } catch (InvalidOperationException) { }
+            using var shutdownCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            shutdownCancellation.CancelAfter(TimeSpan.FromSeconds(8));
+            try { await _app.StopAsync(shutdownCancellation.Token); }
+            catch (InvalidOperationException) { }
+            catch (OperationCanceledException) when (shutdownCancellation.IsCancellationRequested)
+            {
+                _logs.Add("Server", "Kestrel hat das 8-Sekunden-Stoppzeitlimit erreicht; der Host wird jetzt freigegeben.");
+            }
         }
         UpdateStatus(localHttp: false);
         _wakeGuard?.Dispose();
@@ -289,6 +335,21 @@ public sealed class ServerCoordinator : IAsyncDisposable
             await _app.Services.GetRequiredService<BackupService>().CreateLocalBackupAsync("stop", cancellationToken);
         }
         await DisposeApplicationAsync();
+    }
+
+    private async Task<IReadOnlyList<string>> GetRunningEventNamesCoreAsync(CancellationToken cancellationToken)
+    {
+        if (_app is null)
+        {
+            return [];
+        }
+        using var scope = Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ServerDbContext>().Events
+            .AsNoTracking()
+            .Where(value => value.State == CashSlothEventState.Active || value.State == CashSlothEventState.Closing)
+            .OrderBy(value => value.Name)
+            .Select(value => value.Name)
+            .ToListAsync(cancellationToken);
     }
 
     private async Task DisposeApplicationAsync()
@@ -410,14 +471,14 @@ public sealed class ServerCoordinator : IAsyncDisposable
         bool? publicReachability = null,
         bool? database = null,
         bool? wakeGuard = null) => SetStatus(Status with
-    {
-        LocalHttp = localHttp ?? Status.LocalHttp,
-        Tunnel = tunnel ?? Status.Tunnel,
-        PublicReachability = publicReachability ?? Status.PublicReachability,
-        Database = database ?? Status.Database,
-        WakeGuard = wakeGuard ?? Status.WakeGuard,
-        UpdatedAtUtc = DateTimeOffset.UtcNow
-    });
+        {
+            LocalHttp = localHttp ?? Status.LocalHttp,
+            Tunnel = tunnel ?? Status.Tunnel,
+            PublicReachability = publicReachability ?? Status.PublicReachability,
+            Database = database ?? Status.Database,
+            WakeGuard = wakeGuard ?? Status.WakeGuard,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
 
     private void SetStatus(ServerStatusSnapshot snapshot)
     {

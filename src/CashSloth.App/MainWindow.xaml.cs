@@ -63,7 +63,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _serverClient = new CashSlothServerClient(_serverStorage);
+        _eventCoordinator = new CashSlothEventCoordinator(_serverClient, _serverStorage, _saleHistoryStore);
         _serverClient.SessionChanged += OnServerSessionChanged;
+        _eventCoordinator.SessionChanged += OnCashSlothEventSessionChanged;
+        _eventCoordinator.StatusChanged += OnCashSlothEventStatusChanged;
+        _eventCoordinator.SalesSynchronised += OnCashSlothEventSalesSynchronised;
         InitializeComponent();
         LoadAndApplySettings();
 
@@ -75,6 +79,7 @@ public partial class MainWindow : Window
         RefreshPresetControls();
         InitializeAuthUi();
         InitializeSalesUi();
+        InitializeServerEventUi();
         ApplyLocalizedLiterals();
         RefreshQuickTenderButtons();
         UpdateSummaryValues(0, 0, 0);
@@ -227,32 +232,50 @@ public partial class MainWindow : Window
 
     private void OnSwitchPresetClick(object sender, RoutedEventArgs e)
     {
+        TryActivateSelectedPreset();
+    }
+
+    private void OnEditSelectedPresetClick(object sender, RoutedEventArgs e)
+    {
+        if (!TryActivateSelectedPreset())
+        {
+            return;
+        }
+
+        ToolbarTabControl.SelectedItem = ShopTab;
+        EditModeCheckBox.IsChecked = true;
+        ShowCatalogEditor();
+    }
+
+    private bool TryActivateSelectedPreset()
+    {
         var presetId = ResolveSelectedPresetId();
         if (string.IsNullOrWhiteSpace(presetId))
         {
             StatusText.Text = L("status.preset_select_required");
-            return;
+            return false;
         }
 
         if (!_assortmentStore.TryLoadPreset(presetId, out var catalog, out var extraCategories, out var loadError))
         {
             StatusText.Text = Lf("status.preset_switch_failed", loadError ?? string.Empty);
-            return;
+            return false;
         }
 
         if (!_assortmentStore.TrySetActivePreset(presetId, out var setActiveError))
         {
             StatusText.Text = Lf("status.preset_switch_failed", setActiveError ?? string.Empty);
-            return;
+            return false;
         }
 
         _activePresetId = presetId;
         if (!ApplyPresetCatalog(catalog, extraCategories, Lf("status.preset_switched", presetId)))
         {
-            return;
+            return false;
         }
 
         RefreshPresetControls(presetId);
+        return true;
     }
 
     private void OnSaveCurrentPresetClick(object sender, RoutedEventArgs e)
@@ -355,17 +378,16 @@ public partial class MainWindow : Window
             downloadedPreset = downloadedPreset with { Name = CentralPresetNameTextBox.Text.Trim() };
         }
 
-        var setActive = SetImportedPresetActiveCheckBox.IsChecked == true;
+        var setActive = ActivateInstalledAfterDownloadCheckBox.IsChecked == true;
         if (!_assortmentStore.TryUpsertPreset(downloadedPreset, setActive, out var persistedPresetId, out var saveError))
         {
             StatusText.Text = Lf("status.preset_import_failed", saveError ?? string.Empty);
             return;
         }
 
-        _activePresetId = persistedPresetId;
-
         if (setActive)
         {
+            _activePresetId = persistedPresetId;
             if (!_assortmentStore.TryLoadPreset(persistedPresetId, out var catalog, out var extraCategories, out var loadError))
             {
                 StatusText.Text = Lf("status.preset_switch_failed", loadError ?? string.Empty);
@@ -413,11 +435,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(CentralPresetNameTextBox.Text))
-        {
-            preset = preset with { Name = CentralPresetNameTextBox.Text.Trim() };
-        }
-
         try
         {
             var upload = ToServerPreset(preset);
@@ -430,7 +447,7 @@ public partial class MainWindow : Window
                 var existing = await _serverClient.GetPresetAsync(upload.Id);
                 await _serverClient.UpdatePresetAsync(upload with { Version = existing.Version });
             }
-            if (SetImportedPresetActiveCheckBox.IsChecked == true && HasRole(CashSlothRole.Admin))
+            if (SetUploadedPresetActiveCheckBox.IsChecked == true && HasRole(CashSlothRole.Admin))
             {
                 await _serverClient.SetActivePresetAsync(upload.Id);
             }
@@ -480,6 +497,7 @@ public partial class MainWindow : Window
         if (_currentUser is { MustChangePassword: false })
         {
             _ = LoadActiveServerPresetAsync();
+            _ = RefreshCentralPresetControlsAsync(preferredPresetId: null, updateStatusOnSuccess: false);
             _ = RefreshCentralReferenceDataAsync();
         }
     }
@@ -492,6 +510,7 @@ public partial class MainWindow : Window
         PaymentMethodComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, selected, StringComparison.Ordinal))
             ? selected
             : "Cash";
+        RefreshEventPaymentMethods(_eventCoordinator.Current?.Event.Rules);
     }
 
     private void RefreshAccountRoleOptions()
@@ -514,9 +533,15 @@ public partial class MainWindow : Window
     {
         var isSignedIn = _currentUser != null;
         var isPaired = _serverClient.IsPaired;
+        var hasTrustedServer = _serverClient.Connection is not null;
         CurrentUserTextBlock.Text = isSignedIn
             ? $"{_currentUser!.Username} ({ResolveRoleLabel(ParseRole(_currentUser.Role))})"
             : L("account.not_signed_in");
+
+        CentralSetupPanel.Visibility = isPaired ? Visibility.Collapsed : Visibility.Visible;
+        DevicePairingPanel.Visibility = hasTrustedServer && !isPaired ? Visibility.Visible : Visibility.Collapsed;
+        SignedOutAccountPanel.Visibility = isPaired && !isSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        SignedInAccountPanel.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
 
         LoginUsernameTextBox.IsEnabled = !isSignedIn && isPaired;
         LoginPasswordBox.IsEnabled = !isSignedIn && isPaired;
@@ -529,20 +554,38 @@ public partial class MainWindow : Window
         SelfRegisterPasswordBox.IsEnabled = !isSignedIn && isPaired;
         SelfRegisterConfirmPasswordBox.IsEnabled = !isSignedIn && isPaired;
         CreateAccountButton.IsEnabled = !isSignedIn && isPaired;
-        DeviceNameTextBox.IsEnabled = !isPaired && _serverClient.Connection is not null;
-        DevicePairingCodeTextBox.IsEnabled = !isPaired && _serverClient.Connection is not null;
-        PairDeviceButton.IsEnabled = !isPaired && _serverClient.Connection is not null;
+        DeviceNameTextBox.IsEnabled = !isPaired && hasTrustedServer;
+        DevicePairingCodeTextBox.IsEnabled = !isPaired && hasTrustedServer;
+        PairDeviceButton.IsEnabled = !isPaired && hasTrustedServer;
         var canDownload = HasRole(CashSlothRole.User);
         var canUpload = HasRole(CashSlothRole.Creator);
         var canManage = HasRole(CashSlothRole.Admin);
 
+        CentralPresetUnavailablePanel.Visibility = canDownload ? Visibility.Collapsed : Visibility.Visible;
+        CentralPresetsPanel.Visibility = canDownload ? Visibility.Visible : Visibility.Collapsed;
+        CreatorPresetActionsPanel.Visibility = canUpload ? Visibility.Visible : Visibility.Collapsed;
+        SetUploadedPresetActiveCheckBox.Visibility = canManage ? Visibility.Visible : Visibility.Collapsed;
+        AdminAccountsPanel.Visibility = canManage ? Visibility.Visible : Visibility.Collapsed;
+        CentralPresetAvailabilityTextBlock.Text = !isSignedIn
+            ? L("hint.central_preset_sign_in")
+            : _currentUser!.MustChangePassword
+                ? L("hint.central_preset_change_password")
+                : L("hint.central_preset_no_access");
+
         CentralServerUrlTextBox.IsEnabled = canDownload;
         RefreshCentralPresetListButton.IsEnabled = canDownload;
-        CentralPresetComboBox.IsEnabled = canDownload;
+        CentralPresetListBox.IsEnabled = canDownload;
         CentralPresetNameTextBox.IsEnabled = canDownload;
-        SetImportedPresetActiveCheckBox.IsEnabled = canDownload;
+        ActivateInstalledAfterDownloadCheckBox.IsEnabled = canDownload;
         ImportCentralPresetButton.IsEnabled = canDownload;
         UploadPresetButton.IsEnabled = canUpload;
+        SetUploadedPresetActiveCheckBox.IsEnabled = canManage;
+
+        if (!canDownload)
+        {
+            _centralPresetSummaries = new List<AssortmentPresetSummary>();
+            RenderCentralPresetOptions();
+        }
 
         AccountsListBox.IsEnabled = canManage;
         RefreshAccountsButton.IsEnabled = canManage;
@@ -563,6 +606,8 @@ public partial class MainWindow : Window
             AccountsListBox.ItemsSource = _accountSummaries;
             ClearAccountEditor();
         }
+
+        RefreshEventAccessUi();
     }
 
     private async void OnLoginClick(object sender, RoutedEventArgs e)
@@ -579,6 +624,7 @@ public partial class MainWindow : Window
             if (!session.User.MustChangePassword)
             {
                 await LoadActiveServerPresetAsync();
+                await RefreshCentralPresetControlsAsync(preferredPresetId: null, updateStatusOnSuccess: false);
                 await RefreshCentralReferenceDataAsync();
             }
             StatusText.Text = session.User.MustChangePassword
@@ -637,6 +683,7 @@ public partial class MainWindow : Window
             NewPasswordChangeBox.Clear();
             RefreshAuthUi(loadAccounts: true);
             await LoadActiveServerPresetAsync();
+            await RefreshCentralPresetControlsAsync(preferredPresetId: null, updateStatusOnSuccess: false);
             await RefreshCentralReferenceDataAsync();
             StatusText.Text = "Password changed successfully.";
         }
@@ -943,9 +990,17 @@ public partial class MainWindow : Window
 
     private async Task LoadActiveServerPresetAsync()
     {
+        if (_eventCoordinator.Current is not null)
+        {
+            return;
+        }
         try
         {
             var serverPreset = await _serverClient.GetActivePresetWithOfflineFallbackAsync();
+            if (_eventCoordinator.Current is not null)
+            {
+                return;
+            }
             var localPreset = ToLocalPreset(serverPreset);
             if (!_assortmentStore.TryUpsertPreset(localPreset, setActive: true, out var presetId, out var saveError))
             {
@@ -977,6 +1032,7 @@ public partial class MainWindow : Window
             if (!session.User.MustChangePassword)
             {
                 await LoadActiveServerPresetAsync();
+                await RefreshCentralPresetControlsAsync(preferredPresetId: null, updateStatusOnSuccess: false);
                 await RefreshCentralReferenceDataAsync();
             }
             StatusText.Text = $"Server session refreshed for '{session.User.Username}'.";
@@ -1089,6 +1145,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_eventCoordinator.Current is not null && !_eventCoordinator.CanCheckout)
+        {
+            StatusText.Text = _eventCoordinator.Current.Event.State == CashSlothEventState.Closing
+                ? "This event is closing; new sales are blocked."
+                : "The event server is unavailable and the 12-hour offline lease has expired.";
+            RefreshEventCheckoutAvailability();
+            return;
+        }
+
         if (!TryReadTipAmount(out var tipCents, out var tipError))
         {
             StatusText.Text = tipError ?? "Tip amount is invalid.";
@@ -1106,6 +1171,7 @@ public partial class MainWindow : Window
         }
 
         var changeCents = Math.Max(_lastSnapshot.GivenCents - saleTotalCents, 0);
+        var activeEvent = _eventCoordinator.Current;
         var sale = new SaleHistoryRecord(
             string.Empty,
             DateTimeOffset.UtcNow,
@@ -1113,7 +1179,7 @@ public partial class MainWindow : Window
             NormalizeSaleText(RegisterNameTextBox.Text, DefaultRegisterName),
             _currentUser?.Username ?? DefaultOperatorName,
             ResolveSelectedPaymentMethod(),
-            ShowcaseModeCheckBox.IsChecked == true,
+            activeEvent is null ? ShowcaseModeCheckBox.IsChecked == true : EventShowcaseModeCheckBox.IsChecked == true,
             _lastSnapshot.TotalCents,
             tipCents,
             saleTotalCents,
@@ -1124,7 +1190,10 @@ public partial class MainWindow : Window
                 NormalizeSaleText(line.Name, line.Id ?? "UNKNOWN"),
                 line.UnitCents,
                 line.Qty,
-                line.LineTotalCents)).ToArray());
+                line.LineTotalCents)).ToArray(),
+            activeEvent?.Event.Id,
+            activeEvent?.Membership.Id,
+            activeEvent?.Membership.Nickname);
 
         if (!_saleHistoryStore.TryRecordSale(sale, out var saleId, out var recordError))
         {
@@ -1147,9 +1216,14 @@ public partial class MainWindow : Window
         }
 
         TipAmountTextBox.Text = string.Empty;
+        EventTipAmountTextBox.Text = string.Empty;
         RefreshFromCoreJson();
         RefreshSaleHistoryUi(updateStatusOnError: true);
         RefreshEventStatisticsUi();
+        if (activeEvent is not null)
+        {
+            _ = _eventCoordinator.SynchroniseNowAsync();
+        }
 
         StatusText.Text = sale.IsShowcase
             ? $"Showcase sale '{saleId}' saved and excluded from statistics."
@@ -1432,6 +1506,7 @@ public partial class MainWindow : Window
         StatsTipValueText.Text = CurrencyFormatter.FormatCents(stats.TipCents);
         StatsTotalValueText.Text = CurrencyFormatter.FormatCents(stats.TotalCents);
         StatsLinesValueText.Text = stats.LineCount.ToString(CultureInfo.CurrentCulture);
+        RefreshHistoryToolsUi(updateStatusOnError);
     }
 
     private SaleHistoryListItem BuildSaleHistoryListItem(SaleHistorySummary summary)
@@ -1448,12 +1523,13 @@ public partial class MainWindow : Window
         tipCents = 0;
         error = null;
 
-        if (string.IsNullOrWhiteSpace(TipAmountTextBox.Text))
+        var text = _eventCoordinator.Current is null ? TipAmountTextBox.Text : EventTipAmountTextBox.Text;
+        if (string.IsNullOrWhiteSpace(text))
         {
             return true;
         }
 
-        if (!TryParsePrice(TipAmountTextBox.Text, out tipCents))
+        if (!TryParsePrice(text, out tipCents))
         {
             error = "Tip must be a valid amount (e.g. 2.00).";
             return false;
@@ -1464,7 +1540,9 @@ public partial class MainWindow : Window
 
     private string ResolveSelectedPaymentMethod()
     {
-        return PaymentMethodComboBox.SelectedValue as string ?? "Cash";
+        return _eventCoordinator.Current is null
+            ? PaymentMethodComboBox.SelectedValue as string ?? "Cash"
+            : EventPaymentMethodComboBox.SelectedValue as string ?? "Cash";
     }
 
     private string GetCurrentEventName()
@@ -1524,6 +1602,7 @@ public partial class MainWindow : Window
 
     private async Task FinishStartupSequenceAsync(bool showFirstRunOnboarding)
     {
+        await StartEventCoordinatorAsync();
         await Task.Delay(650);
         await FadeOutOverlayAsync(StartupOverlay);
 
@@ -1602,6 +1681,16 @@ public partial class MainWindow : Window
         CloseCartQuantityOverlay();
         CloseCustomerDisplay();
         _eventDiscoveryService.Dispose();
+        _eventCoordinator.SessionChanged -= OnCashSlothEventSessionChanged;
+        _eventCoordinator.StatusChanged -= OnCashSlothEventStatusChanged;
+        _eventCoordinator.SalesSynchronised -= OnCashSlothEventSalesSynchronised;
+        try
+        {
+            _eventCoordinator.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(3));
+        }
+        catch
+        {
+        }
         _serverClient.SessionChanged -= OnServerSessionChanged;
         _serverClient.Dispose();
 
@@ -3014,7 +3103,7 @@ public partial class MainWindow : Window
 
     private string? ResolveSelectedCentralPresetId()
     {
-        if (CentralPresetComboBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
+        if (CentralPresetListBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
         {
             return null;
         }
@@ -3055,8 +3144,8 @@ public partial class MainWindow : Window
     {
         if (_centralPresetSummaries.Count == 0)
         {
-            CentralPresetComboBox.ItemsSource = Array.Empty<UiOption<string>>();
-            CentralPresetComboBox.SelectedValue = null;
+            CentralPresetListBox.ItemsSource = Array.Empty<PresetListItem>();
+            CentralPresetListBox.SelectedValue = null;
             return;
         }
 
@@ -3064,26 +3153,15 @@ public partial class MainWindow : Window
             ? _centralPresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? _centralPresetSummaries[0].Id
             : AssortmentPresetStore.NormalizePresetId(preferredPresetId);
 
-        var options = _centralPresetSummaries
-            .Select(summary => new UiOption<string>(summary.Id, BuildCentralPresetOptionLabel(summary)))
-            .ToArray();
-
-        CentralPresetComboBox.ItemsSource = options;
-        CentralPresetComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
+        CentralPresetListBox.ItemsSource = _centralPresetSummaries.Select(summary => ToPresetListItem(summary, isCentral: true)).ToArray();
+        CentralPresetListBox.SelectedValue = _centralPresetSummaries.Any(summary => string.Equals(summary.Id, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
             ? normalizedPreferred
-            : (_centralPresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? options[0].Value);
-    }
-
-    private string BuildCentralPresetOptionLabel(AssortmentPresetSummary summary)
-    {
-        return summary.IsActive
-            ? Lf("preset.option_central_active_format", summary.Name, summary.ItemCount)
-            : Lf("preset.option_central_format", summary.Name, summary.ItemCount);
+            : (_centralPresetSummaries.FirstOrDefault(summary => summary.IsActive)?.Id ?? _centralPresetSummaries[0].Id);
     }
 
     private string? ResolveSelectedPresetId()
     {
-        if (LocalPresetComboBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
+        if (LocalPresetListBox.SelectedValue is not string selected || string.IsNullOrWhiteSpace(selected))
         {
             return null;
         }
@@ -3105,7 +3183,8 @@ public partial class MainWindow : Window
 
         if (summaries.Count == 0)
         {
-            LocalPresetComboBox.ItemsSource = Array.Empty<UiOption<string>>();
+            LocalPresetListBox.ItemsSource = Array.Empty<PresetListItem>();
+            LocalPresetListBox.SelectedValue = null;
             return;
         }
 
@@ -3114,21 +3193,20 @@ public partial class MainWindow : Window
             ? _activePresetId
             : AssortmentPresetStore.NormalizePresetId(preferredPresetId);
 
-        var options = summaries
-            .Select(summary => new UiOption<string>(summary.Id, BuildPresetOptionLabel(summary)))
-            .ToArray();
-
-        LocalPresetComboBox.ItemsSource = options;
-        LocalPresetComboBox.SelectedValue = options.Any(option => string.Equals(option.Value, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
+        LocalPresetListBox.ItemsSource = summaries.Select(summary => ToPresetListItem(summary, isCentral: false)).ToArray();
+        LocalPresetListBox.SelectedValue = summaries.Any(summary => string.Equals(summary.Id, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
             ? normalizedPreferred
             : _activePresetId;
     }
 
-    private string BuildPresetOptionLabel(AssortmentPresetSummary summary)
+    private PresetListItem ToPresetListItem(AssortmentPresetSummary summary, bool isCentral)
     {
-        return summary.IsActive
-            ? Lf("preset.option_active_format", summary.Name, summary.ItemCount)
-            : Lf("preset.option_format", summary.Name, summary.ItemCount);
+        return new PresetListItem(
+            summary.Id,
+            summary.Name,
+            summary.IsActive,
+            $"{summary.ItemCount} {L("preset.items")}",
+            L(isCentral ? "preset.active_on_server" : "preset.active"));
     }
 
     private bool ApplyPresetCatalog(IReadOnlyCollection<CatalogItemEditor> catalog, IReadOnlyCollection<string> extraCategories, string successStatus)
@@ -3369,6 +3447,7 @@ public partial class MainWindow : Window
 
         _customerDisplayWindow = new CustomerDisplayWindow();
         _customerDisplayWindow.ApplyLocalization(_settings.Language);
+        SetCustomerDisplayEventIdentity(_eventCoordinator.Current);
         _customerDisplayWindow.Closed += (_, _) => _customerDisplayWindow = null;
 
         PositionCustomerDisplayWindow(_customerDisplayWindow);
@@ -3424,6 +3503,13 @@ public partial class MainWindow : Window
             return Text;
         }
     }
+
+    private sealed record PresetListItem(
+        string Id,
+        string Name,
+        bool IsActive,
+        string ItemCountLabel,
+        string ActiveLabel);
 
     private sealed record EventRegisterListItem(EventClientRegister Register)
     {

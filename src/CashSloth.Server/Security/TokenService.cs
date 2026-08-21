@@ -41,6 +41,36 @@ public sealed class TokenService(ServerKeyService keys)
         return (new JwtSecurityTokenHandler().WriteToken(jwt), expires);
     }
 
+    public (string Token, DateTimeOffset ExpiresAtUtc) CreateEventLease(
+        Guid eventId,
+        Guid memberId,
+        Guid deviceId,
+        CashSlothEventRole role,
+        string presetHash,
+        string rulesHash)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var expires = now.Add(AccessTokenLifetime);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            new Claim("event_id", eventId.ToString("N")),
+            new Claim("member_id", memberId.ToString("N")),
+            new Claim("device_id", deviceId.ToString("N")),
+            new Claim("event_role", role.ToString()),
+            new Claim("preset_hash", presetHash),
+            new Claim("rules_hash", rulesHash)
+        };
+        var jwt = new JwtSecurityToken(
+            issuer: Issuer,
+            audience: EventLeaseAudience,
+            claims: claims,
+            notBefore: now.UtcDateTime,
+            expires: expires.UtcDateTime,
+            signingCredentials: new SigningCredentials(keys.SecurityKey, SecurityAlgorithms.EcdsaSha256));
+        return (new JwtSecurityTokenHandler().WriteToken(jwt), expires);
+    }
+
     public TokenValidationParameters CreateValidationParameters() => new()
     {
         ValidateIssuerSigningKey = true,
@@ -57,4 +87,5 @@ public sealed class TokenService(ServerKeyService keys)
 
     public string Issuer => $"cashsloth-server:{keys.ServerId}";
     public const string Audience = "cashsloth-clients";
+    public const string EventLeaseAudience = "cashsloth-event-offline";
 }

@@ -1,6 +1,6 @@
 # Cash-Sloth v2 (CSV2)
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21_
 
 Cash-Sloth v2 is a Windows point-of-sale system with a native C++ transaction core, a WPF cashier application, and a separate WPF central-server control center.
 
@@ -71,15 +71,17 @@ The POS executable is generated below `src/CashSloth.App/bin/Release/net10.0-win
 4. Import the trust file in the CSV2 Accounts tab and pair the installation with a short-lived server-generated code.
 5. Register or sign in. New self-registered users require administrator approval.
 
+After pairing, the Accounts tab shows only sign-in/registration while signed out. Signed-in users see their own session and password controls; only administrators see account management. The Presets tab lists installed local presets for everyone, makes central presets downloadable for signed-in users, exposes publishing to `Creator` and `Admin`, and reserves server-wide activation for `Admin`.
+
 The client stores the device private key and session with Windows DPAPI, validates ES256 access tokens against the pinned server key, rotates refresh tokens, and caches the active central preset for limited offline use while the signed access token remains valid. See [CashSloth.Server](src/CashSloth.Server/README.md) and [CashSloth.App](src/CashSloth.App/README.md) for details.
 
 ## Current status
 
 - Native catalog/cart/payment contracts and CTest coverage are in place.
-- The WPF POS supports catalog editing, tender/change, customer display, local presets, local completed-sale history/statistics, tips, showcase filtering, onboarding, and LAN register discovery.
+- The WPF POS supports catalog editing, tender/change, customer display, local presets, central multi-register events, offline event-sale queuing, recordings, recoverable history reset and CSV/PNG reports.
 - Central server v1 provides paired-device authentication, central accounts and roles, versioned presets, reference data, audit, backups, and its Windows control UI.
-- The WPF POS uses only central server v1 for account and remote-preset operations.
-- Mobile ordering, central sale synchronization, provider-backed TWINT/NFC payments, and true cross-register event totals remain future work.
+- The WPF POS uses only central server v1 for account and remote-preset operations, with role-specific `User`/`Creator`/`Admin` surfaces.
+- Central event-sale synchronization and cross-register totals are implemented in V1.5. Mobile ordering and provider-backed TWINT/NFC payments remain future work.
 
 Current planning and status live in [docs/README.md](docs/README.md), especially the [CSV2 bucketlist](docs/CSV2_BUCKETLIST.md) and [server/external bucketlist](docs/CSV2_SERVER_EXTERNAL_BUCKETLIST.md).
 

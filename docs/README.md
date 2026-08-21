@@ -1,6 +1,6 @@
 # Docs
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21_
 
 ## Current status and planning
 
@@ -20,6 +20,7 @@ _Last updated: 2026-08-19_
 
 Current headline targets:
 - **Central Server v1:** implemented; clean-machine and operational validation active.
+- **Central Server V1.5 events:** implemented; multi-laptop/tunnel field validation active.
 - **Z'Ämme ässe / August deployment readiness:** target date 2026-08-22.
 
-The QEN-GV and original Mobile Event Rollout documents are historical evidence. Mobile ordering, provider payments, and cross-register synchronization remain open rather than being part of server v1.
+The QEN-GV and original Mobile Event Rollout documents are historical evidence. Cross-register completed-sale synchronisation is now part of V1.5; mobile ordering and provider payments remain open.

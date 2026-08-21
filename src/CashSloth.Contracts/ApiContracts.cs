@@ -173,3 +173,234 @@ public sealed record AuditEventResponse(
     string? TargetId,
     string? Detail,
     string? TraceId);
+
+public enum CashSlothEventState
+{
+    Draft = 0,
+    Active = 1,
+    Closing = 2,
+    Ended = 3,
+    Cancelled = 4
+}
+
+public enum CashSlothEventRole
+{
+    Participant = 0,
+    Host = 1
+}
+
+public enum CashSlothEventJoinMode
+{
+    Open = 0,
+    Code = 1
+}
+
+public enum CashSlothEventMemberStatus
+{
+    Active = 0,
+    Left = 1,
+    Kicked = 2
+}
+
+public enum EventSaleSyncDisposition
+{
+    Accepted = 0,
+    Duplicate = 1,
+    Rejected = 2
+}
+
+public sealed record EventRulesDocument(
+    string[] AllowedPaymentMethods,
+    bool AllowTips,
+    bool AllowShowcase);
+
+public sealed record EventCreateRequest(
+    string Name,
+    string HostNickname,
+    string PresetId,
+    long PresetVersion,
+    CashSlothEventJoinMode JoinMode,
+    EventRulesDocument Rules);
+
+public sealed record EventUpdateDraftRequest(
+    string Name,
+    string HostNickname,
+    string PresetId,
+    long PresetVersion,
+    CashSlothEventJoinMode JoinMode,
+    EventRulesDocument Rules,
+    long Version);
+
+public sealed record EventMemberResponse(
+    Guid Id,
+    string UserId,
+    Guid DeviceId,
+    CashSlothEventRole Role,
+    CashSlothEventMemberStatus Status,
+    string Nickname,
+    bool IsOnline,
+    DateTimeOffset JoinedAtUtc,
+    DateTimeOffset? LastSeenAtUtc,
+    DateTimeOffset? LeftAtUtc,
+    DateTimeOffset? KickedAtUtc,
+    int PendingSaleCount);
+
+public sealed record EventSummaryResponse(
+    Guid Id,
+    string Name,
+    CashSlothEventState State,
+    string HostUsername,
+    CashSlothEventJoinMode JoinMode,
+    int ActiveMemberCount,
+    DateTimeOffset? StartedAtUtc);
+
+public sealed record EventDetailResponse(
+    Guid Id,
+    string Name,
+    CashSlothEventState State,
+    string HostUserId,
+    string HostUsername,
+    string HostNickname,
+    string PresetId,
+    long PresetVersion,
+    string PresetHash,
+    PresetDocument? Preset,
+    CashSlothEventJoinMode JoinMode,
+    EventRulesDocument Rules,
+    long Version,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? SalesCutoffUtc,
+    DateTimeOffset? EndedAtUtc,
+    EventMemberResponse[] Members);
+
+public sealed record EventPublishResponse(
+    EventDetailResponse Event,
+    EventMemberResponse Membership,
+    string OfflineLease,
+    DateTimeOffset OfflineUntilUtc,
+    string? JoinCode);
+
+public sealed record EventJoinRequest(string Nickname, string? JoinCode);
+
+public sealed record EventMembershipResponse(
+    EventDetailResponse Event,
+    EventMemberResponse Membership,
+    string OfflineLease,
+    DateTimeOffset OfflineUntilUtc);
+
+public sealed record EventMemberRenameRequest(string Nickname);
+
+public sealed record EventHeartbeatRequest(int PendingSaleCount);
+
+public sealed record EventHeartbeatResponse(
+    CashSlothEventState State,
+    DateTimeOffset? SalesCutoffUtc,
+    string Nickname,
+    DateTimeOffset ServerUtcNow,
+    string OfflineLease,
+    DateTimeOffset OfflineUntilUtc);
+
+public sealed record EventSaleLineUpload(
+    string ItemId,
+    string Name,
+    long UnitCents,
+    int Quantity,
+    long LineTotalCents);
+
+public sealed record EventSaleUpload(
+    string ClientSaleId,
+    DateTimeOffset CompletedAtUtc,
+    string PaymentMethod,
+    bool IsShowcase,
+    long SubtotalCents,
+    long TipCents,
+    long TotalCents,
+    long GivenCents,
+    long ChangeCents,
+    EventSaleLineUpload[] Lines);
+
+public sealed record EventSaleBatchRequest(Guid MemberId, EventSaleUpload[] Sales);
+
+public sealed record EventSaleUploadResult(
+    string ClientSaleId,
+    EventSaleSyncDisposition Disposition,
+    string? ErrorCode,
+    string? Message,
+    DateTimeOffset? AcceptedAtUtc);
+
+public sealed record EventSaleBatchResponse(EventSaleUploadResult[] Results);
+
+public sealed record EventItemStatistic(
+    string ItemId,
+    string Name,
+    long Quantity,
+    long TotalCents);
+
+public sealed record EventPaymentStatistic(
+    string PaymentMethod,
+    long SaleCount,
+    long TotalCents);
+
+public sealed record EventMemberStatistic(
+    Guid MemberId,
+    string Nickname,
+    long SaleCount,
+    long SubtotalCents,
+    long TipCents,
+    long TotalCents);
+
+public sealed record EventTimelinePoint(
+    DateTimeOffset StartedAtUtc,
+    long SaleCount,
+    long TotalCents);
+
+public sealed record EventStatisticsResponse(
+    Guid EventId,
+    bool IncludesShowcase,
+    long SaleCount,
+    long SubtotalCents,
+    long TipCents,
+    long TotalCents,
+    long LineCount,
+    EventItemStatistic[] Items,
+    EventPaymentStatistic[] PaymentMethods,
+    EventMemberStatistic[] Members,
+    EventTimelinePoint[] Timeline,
+    DateTimeOffset CalculatedAtUtc);
+
+public sealed record EventSaleResponse(
+    string ClientSaleId,
+    Guid MemberId,
+    string Nickname,
+    DateTimeOffset CompletedAtUtc,
+    DateTimeOffset ReceivedAtUtc,
+    string PaymentMethod,
+    bool IsShowcase,
+    long SubtotalCents,
+    long TipCents,
+    long TotalCents,
+    long GivenCents,
+    long ChangeCents,
+    EventSaleLineUpload[] Lines);
+
+public sealed record EventCloseResponse(
+    EventDetailResponse Event,
+    string[] UnsynchronisedNicknames);
+
+public sealed record EventFinalizeRequest(bool ConfirmIncomplete);
+
+public sealed record EventFinalReportResponse(
+    Guid EventId,
+    string EventName,
+    bool IsComplete,
+    string[] MissingNicknames,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset EndedAtUtc,
+    EventStatisticsResponse Statistics);
+
+public sealed record EventRealtimeNotification(
+    Guid EventId,
+    string Kind,
+    long Version,
+    DateTimeOffset CreatedAtUtc);

@@ -84,6 +84,15 @@ public static class ServerHostFactory
                 options.TokenValidationParameters = tokenService.CreateValidationParameters();
                 options.Events = new JwtBearerEvents
                 {
+                    OnMessageReceived = context =>
+                    {
+                        if (context.HttpContext.Request.Path.StartsWithSegments("/api/v1/events/hub") &&
+                            context.Request.Query.TryGetValue("access_token", out var token))
+                        {
+                            context.Token = token;
+                        }
+                        return Task.CompletedTask;
+                    },
                     OnTokenValidated = ValidateOnlineSessionAsync,
                     OnChallenge = context =>
                     {
@@ -112,6 +121,14 @@ public static class ServerHostFactory
             options.AddPolicy("register", context => FixedWindow(context, 5, TimeSpan.FromMinutes(10)));
             options.AddPolicy("login", context => FixedWindow(context, 10, TimeSpan.FromMinutes(5)));
             options.AddPolicy("refresh", context => FixedWindow(context, 30, TimeSpan.FromMinutes(5)));
+            options.AddPolicy("event-join", context => FixedWindow(context, 5, TimeSpan.FromMinutes(1)));
+            options.AddPolicy("event-sales", context => FixedWindow(context, 120, TimeSpan.FromMinutes(1)));
+        });
+
+        builder.Services.AddSignalR(options =>
+        {
+            options.MaximumReceiveMessageSize = 32 * 1024;
+            options.EnableDetailedErrors = false;
         });
 
         builder.Services.AddHttpClient("frankfurter", client =>
@@ -129,21 +146,26 @@ public static class ServerHostFactory
         builder.Services.AddScoped<PresetService>();
         builder.Services.AddScoped<ReferenceDataService>();
         builder.Services.AddScoped<AdministrativeQueryService>();
+        builder.Services.AddScoped<EventService>();
         builder.Services.AddSingleton<BackupService>();
 
         var app = builder.Build();
         app.UseMiddleware<ApiExceptionMiddleware>();
-        app.UseRateLimiter();
         app.UseAuthentication();
+        app.UseRateLimiter();
         app.UseMiddleware<ForcedPasswordChangeMiddleware>();
         app.UseAuthorization();
         ServerApi.Map(app);
+        app.MapHub<EventHub>("/api/v1/events/hub").RequireAuthorization("UserPlus");
         return app;
     }
 
     private static RateLimitPartition<string> FixedWindow(HttpContext context, int permitLimit, TimeSpan window)
     {
-        var key = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var device = context.User.FindFirstValue("device_id");
+        var key = string.IsNullOrWhiteSpace(device)
+            ? context.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            : $"device:{device}";
         return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = permitLimit,

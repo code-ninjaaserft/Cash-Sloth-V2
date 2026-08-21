@@ -21,6 +21,7 @@ internal sealed class CashSlothServerException(int statusCode, string code, stri
 
 internal sealed class CashSlothServerClient : IDisposable
 {
+    private static readonly JsonSerializerOptions EventJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly CashSlothServerStorage _storage;
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
@@ -41,6 +42,8 @@ internal sealed class CashSlothServerClient : IDisposable
     internal CashSlothClientConnection? Connection => _storage.LoadConnection();
     internal CashSlothClientSession? Session { get; private set; }
     internal bool IsPaired => Connection?.DeviceId is not null;
+    internal string? AccessToken => Session?.AccessToken;
+    internal string EventHubUrl => new Uri(new Uri(RequireConnection(requireDevice: true).Trust.HttpsUrl.TrimEnd('/') + "/"), "api/v1/events/hub").ToString();
     internal event Action<UserProfileResponse?>? SessionChanged;
 
     internal ServerTrustDocument ValidateTrustFile(string path)
@@ -333,6 +336,142 @@ internal sealed class CashSlothServerClient : IDisposable
             request,
             cancellationToken)
         ?? throw new InvalidDataException("Server lieferte keine Übersetzungsantwort.");
+
+    internal async Task<IReadOnlyList<EventSummaryResponse>> GetEventsAsync(bool includeOwnedDrafts = false, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, List<EventSummaryResponse>>(
+            HttpMethod.Get,
+            includeOwnedDrafts ? "api/v1/events?mine=true" : "api/v1/events",
+            null,
+            cancellationToken) ?? [];
+
+    internal async Task<EventDetailResponse> GetEventAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, EventDetailResponse>(HttpMethod.Get, $"api/v1/events/{eventId:N}", null, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Eventdaten.");
+
+    internal async Task<EventDetailResponse> CreateEventDraftAsync(EventCreateRequest request, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventCreateRequest, EventDetailResponse>(HttpMethod.Post, "api/v1/events", request, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keinen Evententwurf.");
+
+    internal async Task<EventDetailResponse> UpdateEventDraftAsync(Guid eventId, EventUpdateDraftRequest request, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventUpdateDraftRequest, EventDetailResponse>(HttpMethod.Put, $"api/v1/events/{eventId:N}", request, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keinen Evententwurf.");
+
+    internal Task CancelEventDraftAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        SendNoContentAsync(HttpMethod.Delete, $"api/v1/events/{eventId:N}", new { }, cancellationToken);
+
+    internal async Task<EventPublishResponse> PublishEventAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, EventPublishResponse>(HttpMethod.Post, $"api/v1/events/{eventId:N}/publish", null, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Event-Startbestätigung.");
+
+    internal async Task<EventMembershipResponse> JoinEventAsync(Guid eventId, EventJoinRequest request, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventJoinRequest, EventMembershipResponse>(HttpMethod.Post, $"api/v1/events/{eventId:N}/join", request, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Eventmitgliedschaft.");
+
+    internal async Task<EventMembershipResponse> ResumeEventHostAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, EventMembershipResponse>(HttpMethod.Post, $"api/v1/events/{eventId:N}/host/resume", null, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Hostmitgliedschaft.");
+
+    internal Task LeaveEventAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        SendNoContentAsync(HttpMethod.Post, $"api/v1/events/{eventId:N}/leave", new { }, cancellationToken);
+
+    internal async Task<EventMemberResponse> RenameEventMemberAsync(Guid eventId, Guid memberId, string nickname, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventMemberRenameRequest, EventMemberResponse>(
+            HttpMethod.Put,
+            $"api/v1/events/{eventId:N}/members/{memberId:N}/nickname",
+            new EventMemberRenameRequest(nickname),
+            cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Mitgliedsbestätigung.");
+
+    internal Task KickEventMemberAsync(Guid eventId, Guid memberId, CancellationToken cancellationToken = default) =>
+        SendNoContentAsync(HttpMethod.Post, $"api/v1/events/{eventId:N}/members/{memberId:N}/kick", new { }, cancellationToken);
+
+    internal async Task<EventHeartbeatResponse> SendEventHeartbeatAsync(Guid eventId, int pendingSaleCount, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventHeartbeatRequest, EventHeartbeatResponse>(
+            HttpMethod.Post,
+            $"api/v1/events/{eventId:N}/heartbeat",
+            new EventHeartbeatRequest(pendingSaleCount),
+            cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Heartbeat-Antwort.");
+
+    internal async Task<EventSaleBatchResponse> UploadEventSalesAsync(Guid eventId, EventSaleBatchRequest request, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventSaleBatchRequest, EventSaleBatchResponse>(
+            HttpMethod.Post,
+            $"api/v1/events/{eventId:N}/sales/batch",
+            request,
+            cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Sync-Antwort.");
+
+    internal async Task<EventStatisticsResponse> GetEventStatisticsAsync(Guid eventId, bool includeShowcase = false, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, EventStatisticsResponse>(
+            HttpMethod.Get,
+            $"api/v1/events/{eventId:N}/statistics?includeShowcase={includeShowcase.ToString().ToLowerInvariant()}",
+            null,
+            cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Eventstatistik.");
+
+    internal async Task<IReadOnlyList<EventSaleResponse>> GetEventSalesAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, List<EventSaleResponse>>(HttpMethod.Get, $"api/v1/events/{eventId:N}/sales", null, cancellationToken) ?? [];
+
+    internal async Task<EventCloseResponse> CloseEventAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, EventCloseResponse>(HttpMethod.Post, $"api/v1/events/{eventId:N}/close", null, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keine Closing-Bestätigung.");
+
+    internal async Task<EventFinalReportResponse> FinalizeEventAsync(Guid eventId, bool confirmIncomplete, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<EventFinalizeRequest, EventFinalReportResponse>(
+            HttpMethod.Post,
+            $"api/v1/events/{eventId:N}/finalize",
+            new EventFinalizeRequest(confirmIncomplete),
+            cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keinen Eventbericht.");
+
+    internal async Task<EventFinalReportResponse> GetEventReportAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        await SendAuthorizedAsync<object?, EventFinalReportResponse>(HttpMethod.Get, $"api/v1/events/{eventId:N}/report", null, cancellationToken)
+        ?? throw new InvalidDataException("Server lieferte keinen Eventbericht.");
+
+    internal bool IsEventLeaseLocallyValid(CashSlothLocalEventSession eventSession, out ClaimsPrincipal? principal)
+    {
+        principal = null;
+        var connection = Connection;
+        if (connection?.DeviceId is not { } deviceId || eventSession.OfflineUntilUtc <= DateTimeOffset.UtcNow)
+        {
+            return false;
+        }
+        try
+        {
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(connection.Trust.PublicKey), out _);
+            var key = new ECDsaSecurityKey(ecdsa)
+            {
+                KeyId = connection.Trust.KeyId,
+                CryptoProviderFactory = new CryptoProviderFactory { CacheSignatureProviders = false }
+            };
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+            principal = handler.ValidateToken(eventSession.OfflineLease, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ValidateIssuer = true,
+                ValidIssuer = $"cashsloth-server:{connection.Trust.ServerId}",
+                ValidateAudience = true,
+                ValidAudience = "cashsloth-event-offline",
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(1)
+            }, out _);
+            return Guid.TryParse(principal.FindFirst("event_id")?.Value, out var eventId) && eventId == eventSession.Event.Id &&
+                   Guid.TryParse(principal.FindFirst("member_id")?.Value, out var memberId) && memberId == eventSession.Membership.Id &&
+                   Guid.TryParse(principal.FindFirst("device_id")?.Value, out var leaseDeviceId) && leaseDeviceId == deviceId &&
+                   string.Equals(principal.FindFirst("preset_hash")?.Value, eventSession.Event.PresetHash, StringComparison.Ordinal) &&
+                   string.Equals(principal.FindFirst("rules_hash")?.Value, HashEventRules(eventSession.Event.Rules), StringComparison.Ordinal);
+        }
+        catch
+        {
+            principal = null;
+            return false;
+        }
+    }
+
+    private static string HashEventRules(EventRulesDocument rules) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(rules, EventJsonOptions)))).ToLowerInvariant();
 
     internal bool IsAccessTokenLocallyValid(string token, out ClaimsPrincipal? principal)
     {

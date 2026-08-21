@@ -4,12 +4,20 @@
         Title="Customer Display" Height="720" Width="1024">
   <Grid Margin="24">
     <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
+    <TextBlock x:Name="EventRegisterText"
+               Grid.Row="0"
+               Visibility="Collapsed"
+               Margin="0,0,0,16"
+               FontSize="24"
+               FontWeight="SemiBold" />
+
     <DataGrid x:Name="CartLinesGrid"
-              Grid.Row="0"
+              Grid.Row="1"
               AutoGenerateColumns="False"
               CanUserAddRows="False"
               CanUserResizeRows="False"
@@ -24,7 +32,7 @@
       </DataGrid.Columns>
     </DataGrid>
 
-    <Grid Grid.Row="1" Margin="0,24,0,0">
+    <Grid Grid.Row="2" Margin="0,24,0,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="*" />

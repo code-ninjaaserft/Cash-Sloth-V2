@@ -18,8 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CashSloth.App\CashSloth.App.csproj">
-      <AdditionalProperties>SkipNativeCoreBuild=true</AdditionalProperties>
-    </ProjectReference>
+    <ProjectReference Include="..\..\src\CashSloth.App\CashSloth.App.csproj" />
   </ItemGroup>
 </Project>

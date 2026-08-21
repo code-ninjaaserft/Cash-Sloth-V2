@@ -49,4 +49,17 @@ public partial class CustomerDisplayWindow : Window
         GivenValueText.Text = CurrencyFormatter.FormatCents(snapshot.GivenCents);
         ChangeValueText.Text = CurrencyFormatter.FormatCents(snapshot.ChangeCents);
     }
+
+    internal void SetEventRegister(string? eventName, string? nickname)
+    {
+        if (string.IsNullOrWhiteSpace(eventName) || string.IsNullOrWhiteSpace(nickname))
+        {
+            EventRegisterText.Text = string.Empty;
+            EventRegisterText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        EventRegisterText.Text = $"{eventName}: {nickname}";
+        EventRegisterText.Visibility = Visibility.Visible;
+    }
 }

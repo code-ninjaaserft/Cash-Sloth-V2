@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Release',
-    [string]$Version = '1.0.0.0',
+    [string]$Version = '1.5.0.0',
     [string]$Publisher = 'CN=CashSloth Internal',
     [string]$CertificatePath,
     [securestring]$CertificatePassword

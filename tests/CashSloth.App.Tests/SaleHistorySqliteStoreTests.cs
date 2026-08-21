@@ -1,4 +1,6 @@
 using CashSloth.App;
+using CashSloth.Contracts;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace CashSloth.App.Tests;
@@ -82,6 +84,120 @@ public sealed class SaleHistorySqliteStoreTests
             Assert.True(store.TryGetStatistics(filter, out var stats, out var statsError), statsError);
             Assert.Equal(1, stats.SaleCount);
             Assert.Equal(1000, stats.TotalCents);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    [Fact]
+    public void EventSale_IsQueuedAtomically_AndRemovedAfterAcknowledgement()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var store = new SaleHistorySqliteStore(Path.Combine(tempDir, "sales.sqlite3"));
+            var eventId = Guid.NewGuid();
+            var memberId = Guid.NewGuid();
+            var sale = BuildSale("server-event", "Kasse 2", "alice", false, 450, 50) with
+            {
+                ServerEventId = eventId,
+                EventMemberId = memberId,
+                EventNickname = "Kasse 2"
+            };
+
+            Assert.True(store.TryRecordSale(sale, out var saleId, out var recordError), recordError);
+            Assert.True(store.TryGetPendingEventSaleCount(eventId, out var pending, out var countError), countError);
+            Assert.Equal(1, pending);
+            Assert.True(store.TryListPendingEventSales(eventId, 10, out var queued, out var listError), listError);
+            var queuedSale = Assert.Single(queued);
+            Assert.Equal(memberId, queuedSale.MemberId);
+            Assert.Equal(saleId, queuedSale.Sale.Id);
+
+            Assert.True(store.TryApplyEventSaleSyncResults([
+                new EventSaleUploadResult(saleId, EventSaleSyncDisposition.Accepted, null, null, DateTimeOffset.UtcNow)
+            ], out var applyError), applyError);
+            Assert.True(store.TryGetPendingEventSaleCount(eventId, out pending, out countError), countError);
+            Assert.Equal(0, pending);
+
+            Assert.True(store.TryRecordSale(sale with { Id = "rejected-sale" }, out var rejectedId, out recordError), recordError);
+            Assert.True(store.TryApplyEventSaleSyncResults([
+                new EventSaleUploadResult(rejectedId, EventSaleSyncDisposition.Rejected, "sale_line_mismatch", "Rejected", null)
+            ], out applyError), applyError);
+            Assert.True(store.TryGetPendingEventSaleCount(eventId, out pending, out countError), countError);
+            Assert.Equal(1, pending);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    [Fact]
+    public void RecordingAndRecoverableHistoryReset_RoundTripSales()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var store = new SaleHistorySqliteStore(Path.Combine(tempDir, "sales.sqlite3"));
+            Assert.True(store.TryStartRecording("Lunch", out var started, out var startError), startError);
+            Assert.NotNull(started);
+            Assert.True(store.TryRecordSale(BuildSale("event-a", "Kasse 1", "alice", false, 1000, 0), out _, out var recordError), recordError);
+            Assert.True(store.TryStopActiveRecording(out var stopped, out var stopError), stopError);
+            Assert.Equal(1, stopped?.SaleCount);
+            Assert.True(store.TryListRecordingSales(started!.Id, out var recordedSales, out var recordedError), recordedError);
+            Assert.Single(recordedSales);
+
+            Assert.True(store.TryArchiveCurrentHistory(out var archive, out var archiveError), archiveError);
+            Assert.NotNull(archive);
+            Assert.True(store.TryListRecentSales(10, false, out var hiddenSales, out var hiddenError), hiddenError);
+            Assert.Empty(hiddenSales);
+            Assert.True(store.TryRestoreArchive(archive!.Id, out var restoreError), restoreError);
+            Assert.True(store.TryListRecentSales(10, false, out var restoredSales, out var restoredError), restoredError);
+            Assert.Single(restoredSales);
+        }
+        finally
+        {
+            SafeDeleteDirectory(tempDir);
+        }
+    }
+
+    [Fact]
+    public void VersionOneDatabase_MigratesWithoutLosingExistingSales()
+    {
+        var tempDir = CreateTempDir();
+        try
+        {
+            var path = Path.Combine(tempDir, "sales.sqlite3");
+            using (var connection = new SqliteConnection($"Data Source={path}"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = """
+                    PRAGMA foreign_keys = ON;
+                    CREATE TABLE sales (
+                        id TEXT PRIMARY KEY, completed_utc TEXT NOT NULL, event_name TEXT NOT NULL,
+                        register_name TEXT NOT NULL, operator_username TEXT NOT NULL, payment_method TEXT NOT NULL,
+                        is_showcase INTEGER NOT NULL, subtotal_cents INTEGER NOT NULL, tip_cents INTEGER NOT NULL,
+                        total_cents INTEGER NOT NULL, given_cents INTEGER NOT NULL, change_cents INTEGER NOT NULL,
+                        line_count INTEGER NOT NULL, created_utc TEXT NOT NULL);
+                    CREATE TABLE sale_lines (
+                        sale_id TEXT NOT NULL, line_index INTEGER NOT NULL, item_id TEXT NOT NULL, name TEXT NOT NULL,
+                        unit_cents INTEGER NOT NULL, quantity INTEGER NOT NULL, line_total_cents INTEGER NOT NULL,
+                        PRIMARY KEY (sale_id, line_index), FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE);
+                    INSERT INTO sales VALUES ('old-sale', '2026-08-20T10:00:00.0000000+00:00', 'Old event', 'Kasse 1', 'alice', 'Cash', 0, 500, 0, 500, 500, 0, 1, '2026-08-20T10:00:00.0000000+00:00');
+                    INSERT INTO sale_lines VALUES ('old-sale', 0, 'COFFEE', 'Coffee', 500, 1, 500);
+                    PRAGMA user_version = 1;
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            var store = new SaleHistorySqliteStore(path);
+            Assert.True(store.TryEnsureInitialized(out var migrateError), migrateError);
+            Assert.True(store.TryListRecentSales(10, false, out var sales, out var listError), listError);
+            Assert.Equal("old-sale", Assert.Single(sales).Id);
+            Assert.True(store.TryStartRecording("After migration", out _, out var recordingError), recordingError);
         }
         finally
         {

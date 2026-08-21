@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using CashSloth.App;
 using CashSloth.Contracts;
@@ -120,6 +121,56 @@ public sealed class CashSlothServerClientTests
         }
     }
 
+    [Fact]
+    public void EventOfflineLease_IsPinnedToEventMemberDeviceAndPreset()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            using var signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var publicKey = signingKey.ExportSubjectPublicKeyInfo();
+            var trust = CreateTrust(
+                Convert.ToBase64String(publicKey),
+                Convert.ToHexString(SHA256.HashData(publicKey)).ToLowerInvariant());
+            var deviceId = Guid.NewGuid();
+            var eventId = Guid.NewGuid();
+            var memberId = Guid.NewGuid();
+            var expires = DateTimeOffset.UtcNow.AddHours(12);
+            var rules = new EventRulesDocument(["Cash"], true, false);
+            var rulesHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(rules, new JsonSerializerOptions(JsonSerializerDefaults.Web))))).ToLowerInvariant();
+            var storage = new CashSlothServerStorage(root);
+            storage.SaveConnection(new CashSlothClientConnection(trust, deviceId, "Kasse 2"));
+            var key = new ECDsaSecurityKey(signingKey) { KeyId = trust.KeyId };
+            var lease = CreateEventLease(key, trust, eventId, memberId, deviceId, "preset-hash", rulesHash, expires);
+            var member = new EventMemberResponse(
+                memberId, "user", deviceId, CashSlothEventRole.Participant, CashSlothEventMemberStatus.Active,
+                "Kasse 2", true, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null, 0);
+            var detail = new EventDetailResponse(
+                eventId, "Sommerfest", CashSlothEventState.Active, "host", "host", "Host", "preset", 1, "preset-hash", null,
+                CashSlothEventJoinMode.Open, rules, 1,
+                DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null, [member]);
+            var local = new CashSlothLocalEventSession(detail, member, lease, expires, "default", DateTimeOffset.UtcNow);
+            using var client = new CashSlothServerClient(storage);
+
+            Assert.True(client.IsEventLeaseLocallyValid(local, out var principal));
+            Assert.Equal(eventId.ToString("N"), principal?.FindFirst("event_id")?.Value);
+            Assert.False(client.IsEventLeaseLocallyValid(local with
+            {
+                Event = detail with { PresetHash = "different" }
+            }, out _));
+            Assert.False(client.IsEventLeaseLocallyValid(local with
+            {
+                Event = detail with { Rules = rules with { AllowTips = false } }
+            }, out _));
+            Assert.False(client.IsEventLeaseLocallyValid(local with { OfflineUntilUtc = DateTimeOffset.UtcNow.AddSeconds(-1) }, out _));
+        }
+        finally
+        {
+            SafeDeleteDirectory(root);
+        }
+    }
+
     private static string CreateAccessToken(
         ECDsaSecurityKey signingKey,
         ServerTrustDocument trust,
@@ -143,6 +194,35 @@ public sealed class CashSlothServerClientTests
             signingCredentials: new SigningCredentials(
                 signingKey,
                 SecurityAlgorithms.EcdsaSha256));
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static string CreateEventLease(
+        ECDsaSecurityKey signingKey,
+        ServerTrustDocument trust,
+        Guid eventId,
+        Guid memberId,
+        Guid deviceId,
+        string presetHash,
+        string rulesHash,
+        DateTimeOffset expires)
+    {
+        var now = DateTime.UtcNow;
+        var token = new JwtSecurityToken(
+            issuer: $"cashsloth-server:{trust.ServerId}",
+            audience: "cashsloth-event-offline",
+            claims:
+            [
+                new Claim("event_id", eventId.ToString("N")),
+                new Claim("member_id", memberId.ToString("N")),
+                new Claim("device_id", deviceId.ToString("N")),
+                new Claim("event_role", CashSlothEventRole.Participant.ToString()),
+                new Claim("preset_hash", presetHash),
+                new Claim("rules_hash", rulesHash)
+            ],
+            notBefore: now.AddMinutes(-1),
+            expires: expires.UtcDateTime,
+            signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.EcdsaSha256));
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 

@@ -107,7 +107,16 @@ public sealed class CloudflareTunnelManager(
             if (!process.HasExited)
             {
                 process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync(cancellationToken);
+                using var stopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                stopCancellation.CancelAfter(TimeSpan.FromSeconds(5));
+                try
+                {
+                    await process.WaitForExitAsync(stopCancellation.Token);
+                }
+                catch (OperationCanceledException) when (stopCancellation.IsCancellationRequested)
+                {
+                    logs.Add("Tunnel", "cloudflared hat das 5-Sekunden-Stoppzeitlimit erreicht; das Job-Object wird geschlossen.");
+                }
             }
         }
         finally

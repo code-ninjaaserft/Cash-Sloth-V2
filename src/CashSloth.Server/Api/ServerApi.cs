@@ -82,6 +82,53 @@ public static class ServerApi
         reference.MapPost("/translations/resolve", (TranslationResolveRequest request, ReferenceDataService service, CancellationToken token) =>
             service.ResolveTranslationsAsync(request, token));
 
+        var events = api.MapGroup("/events").RequireAuthorization("UserPlus");
+        events.MapGet("/", (bool? mine, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.ListAsync(EventActorFrom(principal), mine == true, token));
+        events.MapGet("/{id:guid}", (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.GetAsync(id, EventActorFrom(principal), token));
+        events.MapPost("/", (EventCreateRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.CreateDraftAsync(request, EventActorFrom(principal), token)).RequireAuthorization("CreatorPlus");
+        events.MapPut("/{id:guid}", (Guid id, EventUpdateDraftRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.UpdateDraftAsync(id, request, EventActorFrom(principal), token)).RequireAuthorization("CreatorPlus");
+        events.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+        {
+            await service.CancelDraftAsync(id, EventActorFrom(principal), token);
+            return Results.NoContent();
+        }).RequireAuthorization("CreatorPlus");
+        events.MapPost("/{id:guid}/publish", (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.PublishAsync(id, EventActorFrom(principal), token)).RequireAuthorization("CreatorPlus");
+        events.MapPost("/{id:guid}/join", (Guid id, EventJoinRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.JoinAsync(id, request, EventActorFrom(principal), token)).RequireRateLimiting("event-join");
+        events.MapPost("/{id:guid}/host/resume", (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.ResumeHostAsync(id, EventActorFrom(principal), token));
+        events.MapPost("/{id:guid}/leave", async (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+        {
+            await service.LeaveAsync(id, EventActorFrom(principal), token);
+            return Results.NoContent();
+        });
+        events.MapPut("/{id:guid}/members/{memberId:guid}/nickname", (Guid id, Guid memberId, EventMemberRenameRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.RenameMemberAsync(id, memberId, request, EventActorFrom(principal), token));
+        events.MapPost("/{id:guid}/members/{memberId:guid}/kick", async (Guid id, Guid memberId, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+        {
+            await service.KickMemberAsync(id, memberId, EventActorFrom(principal), token);
+            return Results.NoContent();
+        });
+        events.MapPost("/{id:guid}/heartbeat", (Guid id, EventHeartbeatRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.HeartbeatAsync(id, request, EventActorFrom(principal), token));
+        events.MapPost("/{id:guid}/sales/batch", (Guid id, EventSaleBatchRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.UploadSalesAsync(id, request, EventActorFrom(principal), token)).RequireRateLimiting("event-sales");
+        events.MapGet("/{id:guid}/statistics", (Guid id, bool? includeShowcase, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.GetStatisticsAsync(id, includeShowcase == true, EventActorFrom(principal), token));
+        events.MapGet("/{id:guid}/sales", (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.GetSalesAsync(id, EventActorFrom(principal), token));
+        events.MapPost("/{id:guid}/close", (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.CloseAsync(id, EventActorFrom(principal), token));
+        events.MapPost("/{id:guid}/finalize", (Guid id, EventFinalizeRequest request, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.FinalizeAsync(id, request, EventActorFrom(principal), token));
+        events.MapGet("/{id:guid}/report", (Guid id, ClaimsPrincipal principal, EventService service, CancellationToken token) =>
+            service.GetReportAsync(id, EventActorFrom(principal), token));
+
         var admin = api.MapGroup("/admin");
         admin.MapPut("/translations", async (TranslationUpsertRequest request, ClaimsPrincipal principal, ReferenceDataService service, CancellationToken token) =>
         {
@@ -137,4 +184,7 @@ public static class ServerApi
 
     private static string Actor(ClaimsPrincipal principal) =>
         principal.Identity?.Name ?? principal.FindFirstValue("unique_name") ?? UserId(principal);
+
+    private static EventActor EventActorFrom(ClaimsPrincipal principal) =>
+        new(UserId(principal), Actor(principal), GuidClaim(principal, "device_id"));
 }

@@ -1,6 +1,6 @@
 # Cash-Sloth v2 Roadmap
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21_
 
 This roadmap reflects the repository as it exists now. Historical QEN-GV dates and checklists remain available for release evidence, but they are not the active architecture plan.
 
@@ -10,7 +10,7 @@ This roadmap reflects the repository as it exists now. Historical QEN-GV dates a
 - `CashSloth.App`: .NET 10 WPF POS with local operational persistence.
 - `CashSloth.Contracts`: shared central API v1 records and roles.
 - `CashSloth.Server`: Windows WPF control center plus loopback ASP.NET Core host, Cloudflare Tunnel integration, EF Core/SQLite, identity, audit, and backups.
-- Central server v1 owns accounts, devices, central presets, exchange rates, and translations. Sales/orders/payment state are explicitly not centralized yet.
+- Central server V1.5 owns accounts, devices, central presets, exchange rates, translations, events, event memberships and completed event-sale synchronisation. Orders and provider payment state are not centralized yet.
 
 ## Phase 1: central server v1 integration — implemented
 
@@ -20,6 +20,7 @@ This roadmap reflects the repository as it exists now. Historical QEN-GV dates a
 - [x] Per-installation pairing and device proof-of-possession
 - [x] Central registration, approval, roles, login, refresh, logout, and password changes
 - [x] Authenticated versioned presets and active-preset cache
+- [x] Role-specific WPF account and preset workspaces for users, creators, and administrators
 - [x] Central exchange-rate/translation reference endpoints
 - [x] Audit, backups, restore, tunnel lifecycle, and server packaging foundation
 - [x] Removal of the local WPF account store and old anonymous preset API/client
@@ -33,11 +34,13 @@ This roadmap reflects the repository as it exists now. Historical QEN-GV dates a
 - [ ] Verify encrypted backup/restore on the actual migration path and document operator recovery steps.
 - [ ] Finalize the certificate, update-manifest, and controlled distribution process.
 
-## Phase 3: shared event operations — design before implementation
+## Phase 3: shared event operations — implemented in V1.5
 
-- [ ] Decide whether event data lives on the central internet server, a host POS on the LAN, or both.
-- [ ] Define authoritative order/sale/payment schemas and idempotent synchronization.
-- [ ] Centralize multi-register totals without breaking offline POS operation.
+- [x] Use the central internet server as the event source of truth.
+- [x] Define authoritative event/sale schemas and idempotent completed-sale synchronization.
+- [x] Centralize multi-register totals with a signed 12-hour offline lease and local outbox.
+- [x] Freeze event preset/rules for host and participants and implement host/member lifecycle controls.
+- [x] Add recording/archive tools and CSV/PNG final-report exports.
 - [ ] Build the selected mobile/PWA ordering workflow and host acceptance flow.
 - [ ] Add the chosen TWINT/NFC/provider handoff with auditable payment states and tips.
 - [ ] Run multi-device soak and real-event tests.

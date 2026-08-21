@@ -50,7 +50,7 @@ public partial class MainWindow : Window
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Öffnen", null, (_, _) => RestoreFromTray());
         menu.Items.Add("Server starten", null, async (_, _) => await RunActionAsync(() => _coordinator.StartAsync()));
-        menu.Items.Add("Server stoppen", null, async (_, _) => await RunActionAsync(() => _coordinator.StopAsync()));
+        menu.Items.Add("Server stoppen", null, async (_, _) => await RunActionAsync(StopServerWithConfirmationAsync, showSuccess: false));
         menu.Items.Add("Beenden", null, (_, _) => Dispatcher.Invoke(BeginExit));
         _trayIcon.ContextMenuStrip = menu;
     }
@@ -76,10 +76,29 @@ public partial class MainWindow : Window
     private async void OnStop(object sender, RoutedEventArgs e) =>
         await RunActionAsync(async () =>
         {
-            await _coordinator.StopAsync();
+            await StopServerWithConfirmationAsync();
             await _coordinator.InitializeAsync();
             await RefreshAllAsync();
         }, showSuccess: false);
+
+    private async Task StopServerWithConfirmationAsync()
+    {
+        try
+        {
+            await _coordinator.StopAsync();
+        }
+        catch (ActiveEventsPreventStopException exception)
+        {
+            var names = string.Join("\n• ", exception.EventNames);
+            if (System.Windows.MessageBox.Show(this,
+                    $"Der normale Stopp ist gesperrt, weil Events noch laufen:\n\n• {names}\n\nEin Notfall-Stopp lässt Clients nur noch mit ihrer vorhandenen Offline-Lease weiterarbeiten. Trotzdem stoppen?",
+                    "Laufende Events", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                return;
+            }
+            await _coordinator.StopAsync(emergencyStop: true);
+        }
+    }
 
     private async void OnCheckStatus(object sender, RoutedEventArgs e) =>
         await RunActionAsync(async () =>
@@ -330,6 +349,9 @@ public partial class MainWindow : Window
         LastFxText.Text = lastFx?.ToLocalTime().ToString("g") ?? "Noch nie";
         var lastBackup = _coordinator.Services.GetRequiredService<BackupService>().GetLatestLocalBackupUtc();
         LastBackupText.Text = lastBackup?.ToLocalTime().ToString("g") ?? "Noch nie";
+        var runningEventCount = await db.Events.CountAsync(value =>
+            value.State == CashSlothEventState.Active || value.State == CashSlothEventState.Closing);
+        RunningEventsText.Text = runningEventCount == 0 ? "Keine" : runningEventCount.ToString();
         BackupReminderText.Text = lastBackup is null || DateTimeOffset.UtcNow - lastBackup > TimeSpan.FromDays(1)
             ? "Hinweis: Es ist wieder Zeit für ein extern aufbewahrtes Umzugsbackup."
             : $"Letztes lokales Backup: {lastBackup.Value.ToLocalTime():g}";
@@ -511,6 +533,15 @@ public partial class MainWindow : Window
         {
             _busy = true;
             ApplyStatus(_coordinator.Status);
+            if (_coordinator.IsRunning)
+            {
+                await StopServerWithConfirmationAsync();
+                if (_coordinator.IsRunning)
+                {
+                    _closeInProgress = false;
+                    return;
+                }
+            }
             await _coordinator.DisposeAsync();
             _trayIcon.Visible = false;
             _trayIcon.Dispose();

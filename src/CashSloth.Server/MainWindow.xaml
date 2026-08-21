@@ -46,13 +46,14 @@
                         <GroupBox Header="Serverinformationen" Margin="4">
                             <Grid Margin="10">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Text="Öffentliche URL" Margin="4"/><TextBlock Grid.Row="0" Grid.Column="1" x:Name="PublicUrlText" Margin="4" TextWrapping="Wrap"/><StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal"><Button Content="Öffnen" Click="OnOpenPublicUrl"/><Button Content="Kopieren" Click="OnCopyPublicUrl"/></StackPanel>
                                 <TextBlock Grid.Row="1" Text="Serverversion" Margin="4"/><TextBlock Grid.Row="1" Grid.Column="1" x:Name="VersionText" Margin="4"/>
                                 <TextBlock Grid.Row="2" Text="Datenbankgrösse" Margin="4"/><TextBlock Grid.Row="2" Grid.Column="1" x:Name="DatabaseSizeText" Margin="4"/>
                                 <TextBlock Grid.Row="3" Text="Letzter Wechselkursabruf" Margin="4"/><TextBlock Grid.Row="3" Grid.Column="1" x:Name="LastFxText" Margin="4"/>
                                 <TextBlock Grid.Row="4" Text="Letzte Sicherung" Margin="4"/><TextBlock Grid.Row="4" Grid.Column="1" x:Name="LastBackupText" Margin="4"/>
-                                <TextBlock Grid.Row="5" Text="Letzter Fehler" Margin="4"/><TextBlock Grid.Row="5" Grid.Column="1" x:Name="LastErrorText" Margin="4" Foreground="#FFB42318" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="5" Text="Laufende Events" Margin="4"/><TextBlock Grid.Row="5" Grid.Column="1" x:Name="RunningEventsText" Margin="4"/>
+                                <TextBlock Grid.Row="6" Text="Letzter Fehler" Margin="4"/><TextBlock Grid.Row="6" Grid.Column="1" x:Name="LastErrorText" Margin="4" Foreground="#FFB42318" TextWrapping="Wrap"/>
                             </Grid>
                         </GroupBox>
 

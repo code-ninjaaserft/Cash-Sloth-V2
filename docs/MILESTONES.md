@@ -1,6 +1,6 @@
 # Milestones
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21_
 
 Dates are planning targets; the status below distinguishes historical release evidence from active work.
 
@@ -37,7 +37,18 @@ Delivered:
 - Central Identity accounts, role/approval policy, paired devices, tokens, and forced password changes
 - Versioned central presets, reference data, audit, and encrypted backup/restore
 - WPF client trust/pairing/auth/admin/preset/reference integration
+- Role-aware Accounts UI and a local/central Presets workspace with user download, creator upload, and admin activation controls
 - Removal of old local-account and anonymous preset-server paths
+
+## Central Server V1.5 events — implemented, field validation active
+
+**Implementation date:** 2026-08-21
+
+- Central event drafts/publication/join and frozen preset/rule snapshots
+- Host/participant event roles, unique nicks, presence, rename/kick/leave/close/finalise lifecycle
+- Idempotent event-sale sync, SignalR hints, HTTP fallback and signed 12-hour offline leases
+- Shared statistics, permanent server history, final report and CSV/PNG exports
+- Local named recordings and recoverable history reset
 
 ## Z'Ämme ässe / August deployment readiness — active
 

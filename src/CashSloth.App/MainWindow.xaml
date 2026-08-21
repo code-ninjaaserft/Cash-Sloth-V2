@@ -80,97 +80,199 @@
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled"
                         PanningMode="VerticalOnly">
-          <Grid Margin="0,4,0,0"
-                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="2*" />
-              <ColumnDefinition Width="12" />
-              <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
+            <Grid Margin="0,4,0,0"
+                  Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="3*" />
+              </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0"
-                    BorderBrush="{DynamicResource AppControlBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="8">
-              <StackPanel>
-                <TextBlock Text="Local presets" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <ComboBox x:Name="LocalPresetComboBox"
-                          Style="{StaticResource TopBarComboBoxStyle}"
-                          Height="34"
-                          DisplayMemberPath="Label"
-                          SelectedValuePath="Value" />
-                <WrapPanel Margin="0,8,0,0">
-                  <Button Content="Switch preset" Width="120" Height="34" Click="OnSwitchPresetClick" />
-                  <Button Content="Refresh" Width="90" Height="34" Margin="6,0,0,0" Click="OnRefreshPresetListClick" />
-                  <Button Content="Delete preset" Width="120" Height="34" Margin="6,0,0,0" Click="OnDeletePresetClick" />
-                </WrapPanel>
+              <Border Grid.Column="0"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="12">
+                <StackPanel>
+                  <TextBlock Text="Installed presets" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
+                  <ListBox x:Name="LocalPresetListBox"
+                           Height="250"
+                           SelectedValuePath="Id">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <Grid Margin="4,5">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <StackPanel>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding ItemCountLabel}" FontSize="12" Opacity="0.75" />
+                          </StackPanel>
+                          <Border x:Name="LocalActiveBadge"
+                                  Grid.Column="1"
+                                  Margin="10,0,0,0"
+                                  Padding="8,3"
+                                  CornerRadius="10"
+                                  Background="{DynamicResource AppControlBorderBrush}"
+                                  Visibility="Collapsed"
+                                  VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ActiveLabel}" FontSize="11" FontWeight="SemiBold" />
+                          </Border>
+                        </Grid>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsActive}" Value="True">
+                            <Setter TargetName="LocalActiveBadge" Property="Visibility" Value="Visible" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
 
-                <TextBlock Text="Save current as" FontWeight="SemiBold" Margin="0,10,0,4" />
-                <TextBox x:Name="NewPresetNameTextBox"
-                         Height="34"
-                         VerticalContentAlignment="Center"
-                         ToolTip="Preset name (e.g. Summer Menu)" />
-                <WrapPanel Margin="0,8,0,0">
-                  <Button Content="Save current preset" Width="170" Height="34" Click="OnSaveCurrentPresetClick" />
-                  <CheckBox x:Name="SetSavedPresetActiveCheckBox"
-                            Content="Set active"
-                            Margin="12,8,0,0"
-                            VerticalAlignment="Center"
-                            IsChecked="True" />
-                </WrapPanel>
+                  <WrapPanel Margin="0,8,0,0">
+                    <Button Content="Activate" Width="100" Height="34" Click="OnSwitchPresetClick" />
+                    <Button Content="Edit in shop" Width="120" Height="34" Margin="6,0,0,0" Click="OnEditSelectedPresetClick" />
+                    <Button Content="Refresh" Width="90" Height="34" Margin="6,0,0,0" Click="OnRefreshPresetListClick" />
+                    <Button Content="Delete preset" Width="120" Height="34" Margin="6,0,0,0" Click="OnDeletePresetClick" />
+                  </WrapPanel>
+
+                  <Separator Margin="0,14,0,12" />
+                  <TextBlock Text="Create local preset" FontWeight="SemiBold" FontSize="15" />
+                  <TextBlock Text="Copies the current shop catalog into a new installed preset."
+                             Margin="0,3,0,8"
+                             TextWrapping="Wrap"
+                             FontSize="12"
+                             Opacity="0.8" />
+                  <TextBox x:Name="NewPresetNameTextBox"
+                           Height="34"
+                           VerticalContentAlignment="Center"
+                           ToolTip="Preset name (e.g. Summer Menu)" />
+                  <WrapPanel Margin="0,8,0,0">
+                    <Button Content="Create from current shop" Width="190" Height="34" Click="OnSaveCurrentPresetClick" />
+                    <CheckBox x:Name="SetSavedPresetActiveCheckBox"
+                              Content="Set active"
+                              Margin="12,8,0,0"
+                              VerticalAlignment="Center"
+                              IsChecked="True" />
+                  </WrapPanel>
+                </StackPanel>
+              </Border>
+
+              <StackPanel Grid.Column="2">
+                <Border x:Name="CentralPresetUnavailablePanel"
+                        BorderBrush="{DynamicResource AppControlBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="12">
+                  <StackPanel>
+                    <TextBlock Text="Online presets" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock x:Name="CentralPresetAvailabilityTextBlock"
+                               Text="Sign in to browse and install presets from the central server."
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap"
+                               Opacity="0.8" />
+                  </StackPanel>
+                </Border>
+
+                <Border x:Name="CentralPresetsPanel"
+                        BorderBrush="{DynamicResource AppControlBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="12"
+                        Visibility="Collapsed">
+                  <StackPanel>
+                    <TextBlock Text="Online presets" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
+                    <TextBlock Text="Central server URL" Margin="0,2,0,2" />
+                    <TextBox x:Name="CentralServerUrlTextBox"
+                             Height="34"
+                             IsReadOnly="True"
+                             VerticalContentAlignment="Center"
+                             ToolTip="Pinned central server URL" />
+
+                    <ListBox x:Name="CentralPresetListBox"
+                             Height="230"
+                             Margin="0,8,0,0"
+                             SelectedValuePath="Id">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate>
+                          <Grid Margin="4,5">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*" />
+                              <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                              <TextBlock Text="{Binding ItemCountLabel}" FontSize="12" Opacity="0.75" />
+                            </StackPanel>
+                            <Border x:Name="CentralActiveBadge"
+                                    Grid.Column="1"
+                                    Margin="10,0,0,0"
+                                    Padding="8,3"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource AppControlBorderBrush}"
+                                    Visibility="Collapsed"
+                                    VerticalAlignment="Center">
+                              <TextBlock Text="{Binding ActiveLabel}" FontSize="11" FontWeight="SemiBold" />
+                            </Border>
+                          </Grid>
+                          <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                              <Setter TargetName="CentralActiveBadge" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                          </DataTemplate.Triggers>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Text="Local name (optional)" Margin="0,8,0,2" />
+                    <TextBox x:Name="CentralPresetNameTextBox"
+                             Height="34"
+                             VerticalContentAlignment="Center"
+                             ToolTip="Override preset name" />
+                    <WrapPanel Margin="0,8,0,0">
+                      <Button x:Name="RefreshCentralPresetListButton" Content="Refresh" Width="90" Height="34" Click="OnRefreshCentralPresetListClick" />
+                      <Button x:Name="ImportCentralPresetButton" Content="Install selected preset" Width="170" Height="34" Margin="6,0,0,0" Click="OnImportCentralPresetClick" />
+                      <CheckBox x:Name="ActivateInstalledAfterDownloadCheckBox"
+                                Content="Install and activate"
+                                Margin="12,8,0,0"
+                                VerticalAlignment="Center"
+                                IsChecked="False" />
+                    </WrapPanel>
+
+                    <Border x:Name="CreatorPresetActionsPanel"
+                            BorderBrush="{DynamicResource AppControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10"
+                            Margin="0,16,0,0"
+                            Visibility="Collapsed">
+                      <StackPanel>
+                        <TextBlock Text="Publish preset (Creator)" FontWeight="SemiBold" />
+                        <TextBlock Text="Uploads the selected installed preset to the central server."
+                                   Margin="0,3,0,8"
+                                   TextWrapping="Wrap"
+                                   FontSize="12"
+                                   Opacity="0.8" />
+                        <WrapPanel>
+                          <Button x:Name="UploadPresetButton" Content="Upload selected preset" Width="180" Height="34" Click="OnUploadPresetClick" />
+                          <CheckBox x:Name="SetUploadedPresetActiveCheckBox"
+                                    Content="Set active on server"
+                                    Margin="12,8,0,0"
+                                    VerticalAlignment="Center"
+                                    Visibility="Collapsed"
+                                    IsChecked="False" />
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </Border>
               </StackPanel>
-            </Border>
-
-            <Border Grid.Column="2"
-                    BorderBrush="{DynamicResource AppControlBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="8">
-              <StackPanel>
-                <TextBlock Text="Central presets" FontWeight="SemiBold" Margin="0,0,0,6" />
-
-                <TextBlock Text="Central server URL" Margin="0,2,0,2" />
-                <TextBox x:Name="CentralServerUrlTextBox"
-                         Height="34"
-                         IsReadOnly="True"
-                         VerticalContentAlignment="Center"
-                         ToolTip="Pinned central server URL" />
-
-                <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="RefreshCentralPresetListButton" Content="Load central presets" Width="170" Height="34" Click="OnRefreshCentralPresetListClick" />
-                </WrapPanel>
-
-                <TextBlock Text="Central preset list" Margin="0,8,0,2" />
-                <ComboBox x:Name="CentralPresetComboBox"
-                          Style="{StaticResource TopBarComboBoxStyle}"
-                          Height="34"
-                          DisplayMemberPath="Label"
-                          SelectedValuePath="Value" />
-
-                <TextBlock Text="Optional preset name" Margin="0,8,0,2" />
-                <TextBox x:Name="CentralPresetNameTextBox"
-                         Height="34"
-                         VerticalContentAlignment="Center"
-                         ToolTip="Override preset name" />
-
-                <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="ImportCentralPresetButton" Content="Import selected central preset" Width="210" Height="34" Click="OnImportCentralPresetClick" />
-                  <Button x:Name="UploadPresetButton" Content="Upload active preset" Width="170" Height="34" Margin="6,0,0,0" Click="OnUploadPresetClick" />
-                  <CheckBox x:Name="SetImportedPresetActiveCheckBox"
-                            Content="Set active"
-                            Margin="12,8,0,0"
-                            VerticalAlignment="Center"
-                            IsChecked="False" />
-                </WrapPanel>
-
-                <TextBlock Text="Presets are loaded through the authenticated central server session."
-                           Margin="0,8,0,0"
-                           FontSize="12"
-                           Opacity="0.8" />
-              </StackPanel>
-            </Border>
-          </Grid>
+            </Grid>
           </ScrollViewer>
         </TabItem>
 
@@ -178,141 +280,140 @@
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled"
                         PanningMode="VerticalOnly">
-          <Grid Margin="0,4,0,0"
-                Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="2*" />
-              <ColumnDefinition Width="12" />
-              <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0"
-                    BorderBrush="{DynamicResource AppControlBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="8">
-              <StackPanel>
-                <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="8"
-                        Margin="0,0,0,16">
-                  <StackPanel>
-                    <TextBlock Text="Central server trust &amp; device pairing" FontWeight="SemiBold" Margin="0,0,0,6" />
-                    <Button Content="Import .cashsloth-trust…" Height="34" Click="OnImportServerTrustClick" />
-                    <TextBlock x:Name="ServerFingerprintTextBlock" Text="No server trusted" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+            <StackPanel Margin="0,4,0,0"
+                        Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Border x:Name="CentralSetupPanel"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="12"
+                      Visibility="Collapsed">
+                <StackPanel>
+                  <TextBlock Text="Central server setup" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
+                  <Button Content="Import .cashsloth-trust…" Width="220" Height="34" HorizontalAlignment="Left" Click="OnImportServerTrustClick" />
+                  <TextBlock x:Name="ServerFingerprintTextBlock" Text="No server trusted" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+                  <StackPanel x:Name="DevicePairingPanel">
                     <TextBlock Text="Device name" Margin="0,8,0,2" />
-                    <TextBox x:Name="DeviceNameTextBox" Height="34" VerticalContentAlignment="Center" />
+                    <TextBox x:Name="DeviceNameTextBox" Height="34" MaxWidth="520" HorizontalAlignment="Stretch" VerticalContentAlignment="Center" />
                     <TextBlock Text="10-character pairing code" Margin="0,8,0,2" />
-                    <TextBox x:Name="DevicePairingCodeTextBox" Height="34" MaxLength="14" VerticalContentAlignment="Center" />
-                    <Button x:Name="PairDeviceButton" Content="Pair this device" Height="34" Margin="0,8,0,0" Click="OnPairDeviceClick" />
-                    <TextBlock x:Name="ServerConnectionStatusTextBlock" Text="Offline / not configured" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <TextBox x:Name="DevicePairingCodeTextBox" Height="34" MaxWidth="520" MaxLength="14" HorizontalAlignment="Stretch" VerticalContentAlignment="Center" />
+                    <Button x:Name="PairDeviceButton" Content="Pair this device" Width="170" Height="34" HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnPairDeviceClick" />
                   </StackPanel>
-                </Border>
+                  <TextBlock x:Name="ServerConnectionStatusTextBlock" Text="Offline / not configured" TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+              </Border>
 
-                <TextBlock Text="Session" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <TextBlock x:Name="CurrentUserTextBlock" Text="Not signed in" Margin="0,0,0,8" />
+              <Border x:Name="SignedOutAccountPanel"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="16"
+                      MaxWidth="560"
+                      HorizontalAlignment="Center"
+                      Visibility="Collapsed">
+                <StackPanel>
+                  <TextBlock Text="Central sign in" FontWeight="SemiBold" FontSize="18" Margin="0,0,0,10" />
+                  <TextBlock Text="Username" Margin="0,2,0,2" />
+                  <TextBox x:Name="LoginUsernameTextBox" Height="36" VerticalContentAlignment="Center" />
+                  <TextBlock Text="Password" Margin="0,10,0,2" />
+                  <PasswordBox x:Name="LoginPasswordBox" Height="36" VerticalContentAlignment="Center" />
+                  <Button x:Name="LoginButton" Content="Login" Width="130" Height="36" HorizontalAlignment="Left" Margin="0,12,0,0" Click="OnLoginClick" />
 
-                <TextBlock Text="Username" Margin="0,2,0,2" />
-                <TextBox x:Name="LoginUsernameTextBox"
-                         Height="34"
-                         VerticalContentAlignment="Center" />
+                  <Expander Header="Need an account?" Margin="0,18,0,0">
+                    <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10"
+                            Margin="0,6,0,0">
+                      <StackPanel>
+                        <TextBlock Text="Create account" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Text="Username" Margin="0,2,0,2" />
+                        <TextBox x:Name="SelfRegisterUsernameTextBox" Height="34" VerticalContentAlignment="Center" />
+                        <TextBlock Text="Password" Margin="0,8,0,2" />
+                        <PasswordBox x:Name="SelfRegisterPasswordBox" Height="34" VerticalContentAlignment="Center" />
+                        <TextBlock Text="Confirm password" Margin="0,8,0,2" />
+                        <PasswordBox x:Name="SelfRegisterConfirmPasswordBox" Height="34" VerticalContentAlignment="Center" />
+                        <Button x:Name="CreateAccountButton"
+                                Content="Create normal user"
+                                Width="170"
+                                Height="34"
+                                HorizontalAlignment="Left"
+                                Margin="0,10,0,0"
+                                Click="OnCreateAccountClick" />
+                      </StackPanel>
+                    </Border>
+                  </Expander>
+                </StackPanel>
+              </Border>
 
-                <TextBlock Text="Password" Margin="0,8,0,2" />
-                <PasswordBox x:Name="LoginPasswordBox"
-                             Height="34"
-                             VerticalContentAlignment="Center" />
+              <Border x:Name="SignedInAccountPanel"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="12"
+                      Visibility="Collapsed">
+                <StackPanel>
+                  <TextBlock Text="Your central account" FontWeight="SemiBold" FontSize="16" />
+                  <TextBlock x:Name="CurrentUserTextBlock" Text="Not signed in" Margin="0,5,0,0" FontSize="14" />
+                  <TextBlock Text="Role-based access is managed by the central server."
+                             Margin="0,3,0,10"
+                             FontSize="12"
+                             Opacity="0.8" />
+                  <Button x:Name="LogoutButton" Content="Logout" Width="120" Height="34" HorizontalAlignment="Left" Click="OnLogoutClick" />
 
-                <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="LoginButton" Content="Login" Width="110" Height="34" Click="OnLoginClick" />
-                  <Button x:Name="LogoutButton" Content="Logout" Width="110" Height="34" Margin="6,0,0,0" Click="OnLogoutClick" />
-                </WrapPanel>
-                <TextBlock Text="Change password (current / new)" Margin="0,10,0,2" />
-                <WrapPanel>
-                  <PasswordBox x:Name="CurrentPasswordChangeBox" Width="150" Height="34" />
-                  <PasswordBox x:Name="NewPasswordChangeBox" Width="150" Height="34" Margin="6,0,0,0" />
-                  <Button x:Name="ChangePasswordButton" Content="Change" Width="90" Height="34" Margin="6,0,0,0" Click="OnChangePasswordClick" />
-                </WrapPanel>
-                <Border BorderBrush="{DynamicResource AppControlBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="8"
-                        Margin="0,18,0,0">
-                  <StackPanel>
-                    <TextBlock Text="Create account" FontWeight="SemiBold" Margin="0,0,0,6" />
+                  <Separator Margin="0,14,0,12" />
+                  <TextBlock Text="Change password" FontWeight="SemiBold" />
+                  <WrapPanel Margin="0,7,0,0">
+                    <StackPanel>
+                      <TextBlock Text="Current password" Margin="0,0,0,2" />
+                      <PasswordBox x:Name="CurrentPasswordChangeBox" Width="190" Height="34" />
+                    </StackPanel>
+                    <StackPanel Margin="8,0,0,0">
+                      <TextBlock Text="New password" Margin="0,0,0,2" />
+                      <PasswordBox x:Name="NewPasswordChangeBox" Width="190" Height="34" />
+                    </StackPanel>
+                    <Button x:Name="ChangePasswordButton" Content="Update password" Width="130" Height="34" Margin="8,20,0,0" Click="OnChangePasswordClick" />
+                  </WrapPanel>
+                </StackPanel>
+              </Border>
 
-                    <TextBlock Text="Username" Margin="0,2,0,2" />
-                    <TextBox x:Name="SelfRegisterUsernameTextBox"
-                             Height="34"
-                             VerticalContentAlignment="Center" />
-
-                    <TextBlock Text="Password" Margin="0,8,0,2" />
-                    <PasswordBox x:Name="SelfRegisterPasswordBox"
-                                 Height="34"
-                                 VerticalContentAlignment="Center" />
-
-                    <TextBlock Text="Confirm password" Margin="0,8,0,2" />
-                    <PasswordBox x:Name="SelfRegisterConfirmPasswordBox"
-                                 Height="34"
-                                 VerticalContentAlignment="Center" />
-
-                    <Button x:Name="CreateAccountButton"
-                            Content="Create normal user"
-                            Width="170"
-                            Height="34"
-                            Margin="0,10,0,0"
-                            Click="OnCreateAccountClick" />
-                  </StackPanel>
-                </Border>
-              </StackPanel>
-            </Border>
-
-            <Border Grid.Column="2"
-                    BorderBrush="{DynamicResource AppControlBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="4"
-                    Padding="8">
-              <StackPanel>
-                <TextBlock Text="Account management (Admin)" FontWeight="SemiBold" Margin="0,0,0,6" />
-                <ListBox x:Name="AccountsListBox"
-                         Height="130"
-                         DisplayMemberPath="Username"
-                         SelectionChanged="OnAccountSelectionChanged" />
-                <Button x:Name="RefreshAccountsButton"
-                        Content="Refresh accounts"
-                        Width="140"
-                        Height="34"
-                        Margin="0,8,0,0"
-                        Click="OnRefreshAccountsClick" />
-
-                <TextBlock Text="Username" Margin="0,10,0,2" />
-                <TextBox x:Name="AccountUsernameTextBox"
-                         Height="34"
-                         VerticalContentAlignment="Center" />
-
-                <TextBlock Text="Role" Margin="0,8,0,2" />
-                <ComboBox x:Name="AccountRoleComboBox"
-                          Style="{StaticResource TopBarComboBoxStyle}"
+              <Border x:Name="AdminAccountsPanel"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="12"
+                      Margin="0,12,0,0"
+                      Visibility="Collapsed">
+                <StackPanel>
+                  <TextBlock Text="Account management (Admin)" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
+                  <ListBox x:Name="AccountsListBox"
+                           Height="160"
+                           DisplayMemberPath="Username"
+                           SelectionChanged="OnAccountSelectionChanged" />
+                  <Button x:Name="RefreshAccountsButton"
+                          Content="Refresh accounts"
+                          Width="140"
                           Height="34"
-                          DisplayMemberPath="Label"
-                          SelectedValuePath="Value" />
-
-                <CheckBox x:Name="AccountEnabledCheckBox"
-                          Content="Enabled"
+                          HorizontalAlignment="Left"
                           Margin="0,8,0,0"
-                          IsChecked="True" />
-                <CheckBox x:Name="AccountApprovedCheckBox"
-                          Content="Approved"
-                          Margin="0,8,0,0"
-                          IsChecked="False" />
-
-                <WrapPanel Margin="0,8,0,0">
-                  <Button x:Name="SaveAccountButton" Content="Save account" Width="130" Height="34" Click="OnSaveAccountClick" />
-                  <Button x:Name="DeleteAccountButton" Content="Reset password" Width="130" Height="34" Margin="6,0,0,0" Click="OnDeleteAccountClick" />
-                </WrapPanel>
-              </StackPanel>
-            </Border>
-          </Grid>
+                          Click="OnRefreshAccountsClick" />
+                  <TextBlock Text="Username" Margin="0,10,0,2" />
+                  <TextBox x:Name="AccountUsernameTextBox" Height="34" VerticalContentAlignment="Center" />
+                  <TextBlock Text="Role" Margin="0,8,0,2" />
+                  <ComboBox x:Name="AccountRoleComboBox"
+                            Style="{StaticResource TopBarComboBoxStyle}"
+                            Height="34"
+                            DisplayMemberPath="Label"
+                            SelectedValuePath="Value" />
+                  <CheckBox x:Name="AccountEnabledCheckBox" Content="Enabled" Margin="0,8,0,0" IsChecked="True" />
+                  <CheckBox x:Name="AccountApprovedCheckBox" Content="Approved" Margin="0,8,0,0" IsChecked="False" />
+                  <WrapPanel Margin="0,8,0,0">
+                    <Button x:Name="SaveAccountButton" Content="Save account" Width="130" Height="34" Click="OnSaveAccountClick" />
+                    <Button x:Name="DeleteAccountButton" Content="Reset password" Width="130" Height="34" Margin="6,0,0,0" Click="OnDeleteAccountClick" />
+                  </WrapPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
           </ScrollViewer>
         </TabItem>
 
@@ -320,8 +421,114 @@
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled"
                         PanningMode="VerticalOnly">
-            <Grid Margin="0,4,0,0"
-                  Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+            <StackPanel Margin="0,4,0,0"
+                        Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Border x:Name="EventLobbyPanel" BorderBrush="{DynamicResource AppControlBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0">
+                    <DockPanel Margin="0,0,0,8">
+                      <TextBlock Text="Online events" FontSize="17" FontWeight="SemiBold" DockPanel.Dock="Left" />
+                      <Button Content="Refresh" Width="90" Height="32" HorizontalAlignment="Right" Click="OnRefreshServerEventsClick" />
+                    </DockPanel>
+                    <ListBox x:Name="OnlineEventsListBox" Height="190" DisplayMemberPath="DisplayLabel" SelectionChanged="OnServerEventSelectionChanged" />
+                    <TextBlock Text="Your event nick" Margin="0,8,0,2" />
+                    <TextBox x:Name="JoinEventNicknameTextBox" Height="32" Text="Kasse 1" />
+                    <TextBlock Text="Entry code (only for locked events)" Margin="0,8,0,2" />
+                    <TextBox x:Name="JoinEventCodeTextBox" Height="32" MaxLength="12" />
+                    <Button Content="Join selected event" Height="34" Margin="0,10,0,0" Click="OnJoinServerEventClick" />
+                  </StackPanel>
+
+                  <StackPanel x:Name="EventCreatorPanel" Grid.Column="2">
+                    <TextBlock Text="Create event" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBlock Text="Event name" />
+                    <TextBox x:Name="CreateEventNameTextBox" Height="32" />
+                    <TextBlock Text="Host nick" Margin="0,7,0,0" />
+                    <TextBox x:Name="CreateEventHostNicknameTextBox" Height="32" Text="Kasse 1" />
+                    <TextBlock Text="Central preset" Margin="0,7,0,0" />
+                    <ComboBox x:Name="EventPresetComboBox" Height="32" DisplayMemberPath="Label" SelectedValuePath="Value" />
+                    <CheckBox x:Name="EventRequiresCodeCheckBox" Content="Require generated entry code" Margin="0,8,0,0" />
+                    <TextBlock Text="Allowed payment methods" Margin="0,8,0,2" />
+                    <WrapPanel>
+                      <CheckBox x:Name="EventAllowCashCheckBox" Content="Cash" IsChecked="True" Margin="0,0,12,0" />
+                      <CheckBox x:Name="EventAllowCardCheckBox" Content="Card" IsChecked="True" Margin="0,0,12,0" />
+                      <CheckBox x:Name="EventAllowTwintCheckBox" Content="TWINT" IsChecked="True" Margin="0,0,12,0" />
+                      <CheckBox x:Name="EventAllowRfidCheckBox" Content="RFID/NFC" Margin="0,0,12,0" />
+                      <CheckBox x:Name="EventAllowMobileCheckBox" Content="Mobile" />
+                    </WrapPanel>
+                    <WrapPanel Margin="0,8,0,0">
+                      <CheckBox x:Name="EventAllowTipsCheckBox" Content="Allow tips" IsChecked="True" Margin="0,0,16,0" />
+                      <CheckBox x:Name="EventAllowShowcaseCheckBox" Content="Allow showcase" />
+                    </WrapPanel>
+                    <WrapPanel Margin="0,10,0,0">
+                      <Button Content="New draft" Width="100" Height="34" Click="OnNewEventDraftClick" />
+                      <Button Content="Save draft" Width="110" Height="34" Margin="6,0,0,0" Click="OnSaveEventDraftClick" />
+                      <Button Content="Start selected draft" Width="160" Height="34" Margin="6,0,0,0" Click="OnPublishServerEventClick" />
+                      <Button Content="Cancel draft" Width="110" Height="34" Margin="6,0,0,0" Click="OnCancelEventDraftClick" />
+                    </WrapPanel>
+                  </StackPanel>
+                </Grid>
+              </Border>
+
+              <Border x:Name="ActiveEventPanel" Visibility="Collapsed" BorderBrush="{DynamicResource AppControlBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12">
+                <StackPanel>
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Left">
+                      <TextBlock x:Name="ActiveEventTitleText" Text="Event" FontSize="20" FontWeight="SemiBold" />
+                      <TextBlock x:Name="ActiveEventIdentityText" Text="Kasse 1 · Participant" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Right">
+                      <TextBlock x:Name="ActiveEventStateText" Text="Active" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                      <TextBlock x:Name="ActiveEventSyncText" Text="Synchronised" FontSize="12" HorizontalAlignment="Right" />
+                    </StackPanel>
+                  </DockPanel>
+                  <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Event members" FontWeight="SemiBold" />
+                      <ListBox x:Name="ServerEventMembersListBox" Height="170" Margin="0,5,0,0" DisplayMemberPath="DisplayLabel" />
+                      <WrapPanel x:Name="EventHostMemberActionsPanel" Margin="0,8,0,0">
+                        <TextBox x:Name="RenameEventMemberTextBox" Width="170" Height="32" />
+                        <Button Content="Rename selected" Width="130" Height="32" Margin="6,0,0,0" Click="OnRenameEventMemberClick" />
+                        <Button Content="Kick selected" Width="110" Height="32" Margin="6,0,0,0" Click="OnKickEventMemberClick" />
+                      </WrapPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Checkout rules" FontWeight="SemiBold" />
+                      <TextBlock Text="Payment method" Margin="0,5,0,2" />
+                      <ComboBox x:Name="EventPaymentMethodComboBox" Height="32" DisplayMemberPath="Label" SelectedValuePath="Value" />
+                      <TextBlock Text="Tip amount" Margin="0,7,0,2" />
+                      <TextBox x:Name="EventTipAmountTextBox" Height="32" TextChanged="OnTipAmountChanged" />
+                      <CheckBox x:Name="EventShowcaseModeCheckBox" Content="Showcase mode" Margin="0,8,0,0" />
+                      <TextBlock x:Name="EventRulesSummaryText" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Event totals" FontWeight="SemiBold" />
+                      <UniformGrid Columns="2" Margin="0,5,0,0">
+                        <TextBlock Text="Sales"/><TextBlock x:Name="ServerEventSalesText" Text="0"/>
+                        <TextBlock Text="Subtotal"/><TextBlock x:Name="ServerEventSubtotalText" Text="CHF 0.00"/>
+                        <TextBlock Text="Tips"/><TextBlock x:Name="ServerEventTipsText" Text="CHF 0.00"/>
+                        <TextBlock Text="Total"/><TextBlock x:Name="ServerEventTotalText" Text="CHF 0.00" FontWeight="SemiBold"/>
+                      </UniformGrid>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Event actions" FontWeight="SemiBold" />
+                      <WrapPanel Margin="0,7,0,0">
+                        <Button Content="Refresh" Width="90" Height="34" Click="OnRefreshActiveEventClick" />
+                        <Button x:Name="LeaveEventButton" Content="Leave event" Width="110" Height="34" Margin="6,0,0,0" Click="OnLeaveServerEventClick" />
+                        <Button x:Name="CloseEventButton" Content="Begin closing" Width="120" Height="34" Margin="6,0,0,0" Click="OnCloseServerEventClick" />
+                        <Button x:Name="FinalizeEventButton" Content="Finalize" Width="100" Height="34" Margin="6,0,0,0" Click="OnFinalizeServerEventClick" />
+                      </WrapPanel>
+                    </StackPanel>
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <Grid Visibility="Collapsed" Margin="0,4,0,0"
+                   Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="12" />
@@ -534,7 +741,8 @@
                   </StackPanel>
                 </Grid>
               </Border>
-            </Grid>
+              </Grid>
+            </StackPanel>
           </ScrollViewer>
         </TabItem>
 
@@ -544,6 +752,11 @@
                         PanningMode="VerticalOnly">
             <Grid Margin="0,4,0,0"
                   Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3*" />
                 <ColumnDefinition Width="12" />
@@ -620,6 +833,42 @@
                     <TextBlock x:Name="StatsLinesValueText" Text="0" />
                   </UniformGrid>
                 </StackPanel>
+              </Border>
+
+              <Border Grid.Row="2"
+                      Grid.Column="0"
+                      Grid.ColumnSpan="3"
+                      BorderBrush="{DynamicResource AppControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0">
+                    <TextBlock Text="History recording" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ActiveRecordingStatusText" Text="No recording is active." Margin="0,5,0,0" />
+                    <TextBox x:Name="RecordingNameTextBox" Height="32" Margin="0,8,0,0" ToolTip="Optional recording name" />
+                    <WrapPanel Margin="0,8,0,0">
+                      <Button Content="Start recording" Width="125" Height="34" Click="OnStartHistoryRecordingClick" />
+                      <Button Content="Stop recording" Width="125" Height="34" Margin="6,0,0,0" Click="OnStopHistoryRecordingClick" />
+                      <Button Content="Export selected" Width="125" Height="34" Margin="6,0,0,0" Click="OnExportHistoryRecordingClick" />
+                    </WrapPanel>
+                    <ListBox x:Name="HistoryRecordingsListBox" Height="130" Margin="0,8,0,0" DisplayMemberPath="DisplayLabel" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Text="Reset and restore" FontWeight="SemiBold" />
+                    <TextBlock Text="Reset archives the current history. It can be restored later; event history on the server is never deleted." TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <WrapPanel Margin="0,8,0,0">
+                      <Button Content="Reset history" Width="125" Height="34" Click="OnResetHistoryClick" />
+                      <Button Content="Restore selected" Width="135" Height="34" Margin="6,0,0,0" Click="OnRestoreHistoryClick" />
+                    </WrapPanel>
+                    <ListBox x:Name="HistoryArchivesListBox" Height="130" Margin="0,8,0,0" DisplayMemberPath="DisplayLabel" />
+                  </StackPanel>
+                </Grid>
               </Border>
             </Grid>
           </ScrollViewer>
@@ -776,7 +1025,7 @@
       <StackPanel Grid.Row="0" Orientation="Horizontal">
         <Button Content="Remove Selected" Width="190" Height="44" FontSize="16" Click="OnRemoveSelectedClick" />
         <Button Content="Clear" Width="120" Height="44" FontSize="16" Margin="8,0,0,0" Click="OnClearClick" />
-        <Button Content="Complete Sale" Width="150" Height="44" FontSize="16" Margin="8,0,0,0" Click="OnCompleteSaleClick" />
+        <Button x:Name="ShopCompleteSaleButton" Content="Complete Sale" Width="150" Height="44" FontSize="16" Margin="8,0,0,0" Click="OnCompleteSaleClick" />
 
         <Separator Margin="16,0,16,0" Width="1" />
 

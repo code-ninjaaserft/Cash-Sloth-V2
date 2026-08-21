@@ -15,6 +15,14 @@ internal sealed record CashSlothClientSession(
     DateTimeOffset RefreshTokenExpiresAtUtc,
     UserProfileResponse User);
 
+internal sealed record CashSlothLocalEventSession(
+    EventDetailResponse Event,
+    EventMemberResponse Membership,
+    string OfflineLease,
+    DateTimeOffset OfflineUntilUtc,
+    string? PreviousLocalPresetId,
+    DateTimeOffset SavedAtUtc);
+
 internal sealed class CashSlothServerStorage
 {
     private static readonly byte[] Entropy = SHA256.HashData(Encoding.UTF8.GetBytes("CashSloth.CSV2.ServerClient.v1"));
@@ -43,6 +51,7 @@ internal sealed class CashSlothServerStorage
     private string ConnectionPath => Path.Combine(_root, "server-connection.json");
     private string DeviceKeyPath => Path.Combine(_root, "device-private-key.bin");
     private string SessionPath => Path.Combine(_root, "server-session.bin");
+    private string EventSessionPath => Path.Combine(_root, "event-session.bin");
     internal string PresetCachePath => Path.Combine(_root, "active-server-preset.json");
 
     internal CashSlothClientConnection? LoadConnection() => ReadJson<CashSlothClientConnection>(ConnectionPath);
@@ -128,6 +137,52 @@ internal sealed class CashSlothServerStorage
         if (File.Exists(SessionPath))
         {
             File.Delete(SessionPath);
+        }
+    }
+
+    internal CashSlothLocalEventSession? LoadEventSession()
+    {
+        if (!File.Exists(EventSessionPath))
+        {
+            return null;
+        }
+        try
+        {
+            var plain = Unprotect(File.ReadAllBytes(EventSessionPath));
+            try
+            {
+                return JsonSerializer.Deserialize<CashSlothLocalEventSession>(plain, JsonOptions);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plain);
+            }
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    internal void SaveEventSession(CashSlothLocalEventSession session)
+    {
+        Directory.CreateDirectory(_root);
+        var plain = JsonSerializer.SerializeToUtf8Bytes(session, JsonOptions);
+        try
+        {
+            File.WriteAllBytes(EventSessionPath, Protect(plain));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plain);
+        }
+    }
+
+    internal void ClearEventSession()
+    {
+        if (File.Exists(EventSessionPath))
+        {
+            File.Delete(EventSessionPath);
         }
     }
 

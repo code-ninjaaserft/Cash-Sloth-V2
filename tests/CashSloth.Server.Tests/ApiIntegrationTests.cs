@@ -66,6 +66,28 @@ public sealed class ApiIntegrationTests
             var forbiddenDelete = await client.DeleteAsync("api/v1/presets/CREATOR");
             Assert.Equal(HttpStatusCode.Forbidden, forbiddenDelete.StatusCode);
 
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userToken);
+            var eventRequest = new EventCreateRequest(
+                "API event", "Host", "CREATOR", 1, CashSlothEventJoinMode.Open,
+                new EventRulesDocument(["Cash"], false, false));
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("api/v1/events", eventRequest)).StatusCode);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", creatorToken);
+            var eventDraftResponse = await client.PostAsJsonAsync("api/v1/events", eventRequest);
+            Assert.Equal(HttpStatusCode.OK, eventDraftResponse.StatusCode);
+            var eventDraft = await eventDraftResponse.Content.ReadFromJsonAsync<EventDetailResponse>();
+            Assert.NotNull(eventDraft);
+            var publishResponse = await client.PostAsync($"api/v1/events/{eventDraft!.Id:N}/publish", null);
+            Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userToken);
+            var listedEvents = await client.GetFromJsonAsync<List<EventSummaryResponse>>("api/v1/events");
+            Assert.Contains(listedEvents ?? [], value => value.Id == eventDraft.Id);
+            var joinResponse = await client.PostAsJsonAsync(
+                $"api/v1/events/{eventDraft.Id:N}/join",
+                new EventJoinRequest("Kasse 2", null));
+            Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
             Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("api/v1/presets/CREATOR")).StatusCode);
         }

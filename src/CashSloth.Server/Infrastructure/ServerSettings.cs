@@ -17,6 +17,7 @@ public sealed record ServerSettings
         var paths = new ServerPaths();
         return new ServerSettings
         {
+            PublicUrl = "https://api.faultir.ch",
             DataPath = paths.DataRoot,
             CloudflaredPath = Path.Combine(AppContext.BaseDirectory, "cloudflared.exe")
         };
